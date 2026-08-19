@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "prettier": "^3.4.2",
+    "supabase": "^2.115.0",
     "vitest": "^3.0.7"
   }
 }
