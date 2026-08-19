@@ -6,7 +6,11 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
   const raw = await req.text();
   let payload: any;
-  try { payload = JSON.parse(raw); } catch { return new Response("Invalid JSON", { status: 400 }); }
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    return new Response("Invalid JSON", { status: 400 });
+  }
 
   // One-time Notion subscription verification. Capture the token securely during setup.
   if (typeof payload.verification_token === "string") {
@@ -26,7 +30,12 @@ Deno.serve(async (req) => {
 
   const supabase = serviceClient();
   const { error } = await supabase.from("sync_events").insert({
-    provider: "notion", provider_event_id: eventId, event_type: eventType, entity_id: entityId, payload, status: "received",
+    provider: "notion",
+    provider_event_id: eventId,
+    event_type: eventType,
+    entity_id: entityId,
+    payload,
+    status: "received",
   });
   if (error && !String(error.code).includes("23505")) throw error;
   if (error) return Response.json({ received: true, duplicate: true });
@@ -35,11 +44,17 @@ Deno.serve(async (req) => {
   const syncUrl = `${requiredEnv("SUPABASE_URL")}/functions/v1/sync-notion-page`;
   const response = await fetch(syncUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${requiredEnv("SUPABASE_SERVICE_ROLE_KEY")}` },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${requiredEnv("SUPABASE_SERVICE_ROLE_KEY")}`,
+    },
     body: JSON.stringify({ pageId: entityId, eventId }),
   });
   if (!response.ok) {
-    await supabase.from("sync_events").update({ status: "failed", error: `sync invocation ${response.status}` }).eq("provider_event_id", eventId);
+    await supabase
+      .from("sync_events")
+      .update({ status: "failed", error: `sync invocation ${response.status}` })
+      .eq("provider_event_id", eventId);
   }
   return Response.json({ received: true });
 });

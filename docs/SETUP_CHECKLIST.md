@@ -6,7 +6,7 @@
 - [ ] Add each pilot user to `user_access_scopes` for the pilot scope.
 - [ ] Create a Notion integration/connection with read access only to the pilot knowledge tree.
 - [ ] Share the pilot Notion pages/data source with that integration.
-- [ ] Set `NOTION_API_TOKEN` and `NOTION_ROOT_PAGE_ID` as server secrets.
+- [ ] Set `NOTION_API_TOKEN`, `NOTION_ROOT_PAGE_ID`, `NOTION_CONTENTS_DATABASE_ID`, and `NOTION_CONTENTS_DATA_SOURCE_ID` as server secrets.
 - [ ] Deploy `sync-notion-page` and `notion-webhook` functions.
 - [ ] Register the public Notion webhook URL and complete subscription verification.
 - [ ] Store the Notion webhook verification token as `NOTION_WEBHOOK_VERIFICATION_TOKEN`.

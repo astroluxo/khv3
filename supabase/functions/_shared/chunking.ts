@@ -11,7 +11,11 @@ export type TextChunk = {
 };
 
 function normalizeWhitespace(value: string): string {
-  return value.replace(/\r/g, "").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+  return value
+    .replace(/\r/g, "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 export async function sha256Hex(value: string): Promise<string> {

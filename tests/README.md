@@ -1,6 +1,7 @@
 # Tests
 
 Codex Phase 1–4 should add executable tests here or next to the functions. Minimum required coverage:
+
 - chunk hash stability and chunk boundaries;
 - webhook verification/replay behavior;
 - changed-only embedding reconciliation;

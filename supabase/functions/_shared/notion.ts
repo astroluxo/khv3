@@ -22,7 +22,7 @@ export async function fetchPageAsSections(pageId: string): Promise<{
   sourceUpdatedAt?: string;
   sections: NormalizedSection[];
 }> {
-  const page = await notion.pages.retrieve({ page_id: pageId }) as Record<string, unknown>;
+  const page = (await notion.pages.retrieve({ page_id: pageId })) as Record<string, unknown>;
   const archived = Boolean(page.archived ?? page.in_trash ?? false);
   const properties = (page.properties ?? {}) as Record<string, any>;
   let title = "Untitled";
@@ -38,7 +38,11 @@ export async function fetchPageAsSections(pageId: string): Promise<{
   let cursor: string | undefined;
   let headingPath = title;
   do {
-    const response = await notion.blocks.children.list({ block_id: pageId, start_cursor: cursor, page_size: 100 });
+    const response = await notion.blocks.children.list({
+      block_id: pageId,
+      start_cursor: cursor,
+      page_size: 100,
+    });
     for (const raw of response.results as Array<Record<string, unknown>>) {
       const parsed = blockText(raw);
       if (!parsed?.text) continue;
@@ -48,7 +52,7 @@ export async function fetchPageAsSections(pageId: string): Promise<{
         sections.push({ path: headingPath, text: parsed.text });
       }
     }
-    cursor = response.has_more ? response.next_cursor ?? undefined : undefined;
+    cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;
   } while (cursor);
 
   return {

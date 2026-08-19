@@ -1,6 +1,7 @@
 # Security and production gate
 
 ## Threat model highlights
+
 - Unauthorized access to internal procedures.
 - Leaked Supabase service role, OpenAI, or Notion tokens.
 - Forged Notion webhook requests.
@@ -9,6 +10,7 @@
 - Sensitive content in logs.
 
 ## Required controls
+
 - Supabase Auth for user-facing requests.
 - Service role key only in server-side functions.
 - RLS enabled and tested before production.
@@ -21,7 +23,9 @@
 - Rate limit authenticated chat calls if abuse becomes possible.
 
 ## Production gate
+
 Do not label production-ready until:
+
 - RLS tests prove unauthorized users cannot retrieve restricted chunks.
 - Webhook signature validation is active.
 - Secrets are stored in deployment secret managers.

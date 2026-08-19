@@ -7,7 +7,9 @@ export default function HomePage() {
         <div>
           <p className="eyebrow">Base de conocimiento interna</p>
           <h1>¿En qué puedo ayudarte?</h1>
-          <p className="subtle">Las respuestas se basan únicamente en contenido interno publicado.</p>
+          <p className="subtle">
+            Las respuestas se basan únicamente en contenido interno publicado.
+          </p>
         </div>
       </header>
       <Chat />

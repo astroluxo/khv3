@@ -26,6 +26,7 @@ Employee -> Next.js web -> Edge Function: chat -> OpenAI Responses API
 ```
 
 ## Why this architecture
+
 - Notion is an editor/CMS, not the query engine.
 - Postgres stores text, metadata, access rules, logs, and vectors in one system.
 - pgvector avoids a second vector SaaS for the MVP.
@@ -34,6 +35,7 @@ Employee -> Next.js web -> Edge Function: chat -> OpenAI Responses API
 - OpenAI calls receive only the selected context, reducing cost and hallucination surface.
 
 ## Ingestion flow
+
 1. Notion emits an event.
 2. `notion-webhook` reads the raw body, handles subscription verification, validates the signature for normal events, and records an idempotency key.
 3. It invokes/schedules `sync-notion-page` for affected pages.
@@ -47,9 +49,11 @@ Employee -> Next.js web -> Edge Function: chat -> OpenAI Responses API
 11. The document sync state is updated.
 
 ## Chunk identity
+
 Prefer deterministic identifiers from `(source_document_id, logical_section_path, normalized_text_hash)` rather than array position alone. Position may change when content is inserted above a chunk.
 
 ## Retrieval flow
+
 1. Validate user JWT and derive access scope.
 2. Normalize query and create query embedding.
 3. Run semantic candidate search.
@@ -63,12 +67,15 @@ Prefer deterministic identifiers from `(source_document_id, logical_section_path
 11. Persist query telemetry.
 
 ## Search design
+
 Use the same `chunks` table for:
+
 - `embedding vector(1536)`
 - generated `tsvector` column for keyword search
 - metadata columns / JSONB
 
 Initial index strategy:
+
 - HNSW vector index when corpus size justifies it.
 - GIN index on FTS column.
 - B-tree indexes on document/status/department fields.
@@ -76,9 +83,11 @@ Initial index strategy:
 For a tiny corpus, exact vector scan can be acceptable initially; keep the SQL compatible with adding HNSW without changing application contracts.
 
 ## Permissions
+
 The MVP can begin with one department, but the schema must not assume every future user can see every document. `documents.access_scope` and membership mapping provide the extension point. RLS is the production gate.
 
 ## Failure modes
+
 - Webhook duplicate: event id unique constraint makes it idempotent.
 - Webhook arrives before content is consistent: sync retries with bounded backoff.
 - Embedding call fails: preserve prior published chunks until a successful reconciliation when possible; mark sync failure.
@@ -87,9 +96,11 @@ The MVP can begin with one department, but the schema must not assume every futu
 - Model returns unknown citation: reject/repair citation list from retrieved ids.
 
 ## Model strategy
+
 Default generation model is environment-configured. Optimize for low cost first; quality upgrades should be driven by evaluation failure categories, not intuition.
 
 ## Future extensions, intentionally deferred
+
 - Additional sources such as Google Drive/SharePoint.
 - Visual assets and chart understanding.
 - Reranker model.
