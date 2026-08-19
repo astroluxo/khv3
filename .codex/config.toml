@@ -1,0 +1,3 @@
+# Project-scoped Codex configuration intentionally kept conservative.
+# Add MCP servers or approval overrides only when the project actually needs them.
+project_doc_max_bytes = 32768
