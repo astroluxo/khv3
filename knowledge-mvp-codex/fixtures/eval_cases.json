@@ -1,0 +1,23 @@
+[
+  {
+    "id": "semantic-001",
+    "question": "¿Cómo se cancela una matrícula después de iniciar el curso?",
+    "expected_source_keys": ["fixture-cancelacion-matricula"],
+    "must_answer": true,
+    "notes": "Replace fixture key with real source after pilot corpus is loaded."
+  },
+  {
+    "id": "exact-001",
+    "question": "¿Qué indica el procedimiento F-127?",
+    "expected_source_keys": ["fixture-f-127"],
+    "must_answer": true,
+    "notes": "Exercises full-text/exact identifier retrieval."
+  },
+  {
+    "id": "noanswer-001",
+    "question": "¿Cuál es la política interna para viajar a Marte?",
+    "expected_source_keys": [],
+    "must_answer": false,
+    "notes": "Must return insufficient evidence."
+  }
+]
