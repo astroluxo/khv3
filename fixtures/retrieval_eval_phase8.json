@@ -1,0 +1,282 @@
+[
+  {
+    "id": "phase8-academic-matricula-001",
+    "question": "Que debo revisar antes de matricular a un estudiante?",
+    "expected": {
+      "documentTitle": "Módulo 10: Matrícula",
+      "area": "Académica",
+      "sectionContains": "Matrícula estudiantil",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-academic-matricula-002",
+    "question": "Que ocurre si al matricular hay choques de horario?",
+    "expected": {
+      "documentTitle": "Módulo 10: Matrícula",
+      "area": "Académica",
+      "sectionContains": "Matrícula estudiantil",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-academic-matricula-003",
+    "question": "De donde salen los cursos, fechas, aulas y profesores disponibles para matricula?",
+    "expected": {
+      "documentTitle": "Módulo 10: Matrícula",
+      "area": "Académica",
+      "sectionContains": "Matrícula estudiantil",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-academic-homologaciones-001",
+    "question": "Para que sirve la Homologación de cursos entre programas academicos?",
+    "expected": {
+      "documentTitle": "Módulo 6. Homologaciones - Faltas de asistencia - Consecutivo actas de grado y diplomas",
+      "area": "Académica",
+      "sectionContains": "Homologación de cursos",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-academic-homologaciones-002",
+    "question": "Como se crean equivalencias de asignaturas entre diferentes programas?",
+    "expected": {
+      "documentTitle": "Módulo 6. Homologaciones - Faltas de asistencia - Consecutivo actas de grado y diplomas",
+      "area": "Académica",
+      "sectionContains": "Homologación de cursos",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-academic-faltas-001",
+    "question": "Como se parametrizan las faltas de asistencia para reprobar cursos?",
+    "expected": {
+      "documentTitle": "Módulo 6. Homologaciones - Faltas de asistencia - Consecutivo actas de grado y diplomas",
+      "area": "Académica",
+      "sectionContains": "Faltas de asistencia",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-academic-actas-001",
+    "question": "Como se configura el consecutivo de actas de grado y diplomas?",
+    "expected": {
+      "documentTitle": "Módulo 6. Homologaciones - Faltas de asistencia - Consecutivo actas de grado y diplomas",
+      "area": "Académica",
+      "sectionContains": "Consecutivo Actas",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-academic-calificacion-001",
+    "question": "Que procesos se realizan en la opcion Calificar estudiantes?",
+    "expected": {
+      "documentTitle": "Módulo 11: Calificación",
+      "area": "Académica",
+      "sectionContains": "Calificar estudiantes",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-academic-calificacion-002",
+    "question": "Que debo tener presente para calificar a un estudiante?",
+    "expected": {
+      "documentTitle": "Módulo 11: Calificación",
+      "area": "Académica",
+      "sectionContains": "Calificar estudiantes",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-academic-calificacion-003",
+    "question": "Como se registra el control de asistencia de cada estudiante?",
+    "expected": {
+      "documentTitle": "Módulo 11: Calificación",
+      "area": "Académica",
+      "sectionContains": "Control de asistencias",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-academic-calificacion-004",
+    "question": "Que se registra en la pestana de anotaciones del estudiante?",
+    "expected": {
+      "documentTitle": "Módulo 11: Calificación",
+      "area": "Académica",
+      "sectionContains": "Anotaciones",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-security-password-001",
+    "question": "Que permite configurar la seccion Politicas de Contraseña?",
+    "expected": {
+      "documentTitle": "Módulo 3. Seguridad",
+      "area": "Seguridad",
+      "sectionContains": "Politicas de Contraseña",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-security-reset-001",
+    "question": "Como se genera una solicitud de cambio de Contraseña por CIF?",
+    "expected": {
+      "documentTitle": "Módulo 3. Seguridad",
+      "area": "Seguridad",
+      "sectionContains": "Solicitud Contraseña CIF",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-security-reset-002",
+    "question": "Como se repone la Contraseña de acceso al sistema buscando por nombre de usuario?",
+    "expected": {
+      "documentTitle": "Módulo 3. Seguridad",
+      "area": "Seguridad",
+      "sectionContains": "Solicitud Contraseña Usuario",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-security-portals-001",
+    "question": "Como se activan o desactivan opciones de los portales de estudiantes y profesores?",
+    "expected": {
+      "documentTitle": "Módulo 3. Seguridad",
+      "area": "Seguridad",
+      "sectionContains": "Seguridad portales",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-financial-billing-001",
+    "question": "Para que sirve el modulo de Facturación?",
+    "expected": {
+      "documentTitle": "Módulo 5: Procesos/Facturación",
+      "area": "Financiera",
+      "sectionContains": "Facturación",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-financial-billing-002",
+    "question": "Como se busca un usuario para iniciar el proceso de Facturación?",
+    "expected": {
+      "documentTitle": "Módulo 5: Procesos/Facturación",
+      "area": "Financiera",
+      "sectionContains": "Proceso de Facturación",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-financial-billing-003",
+    "question": "Como se agrega un concepto a una obligacion financiera?",
+    "expected": {
+      "documentTitle": "Módulo 5: Procesos/Facturación",
+      "area": "Financiera",
+      "sectionContains": "Agregar un concepto",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-financial-billing-004",
+    "question": "Como se registran cuotas o abonos en Facturación?",
+    "expected": {
+      "documentTitle": "Módulo 5: Procesos/Facturación",
+      "area": "Financiera",
+      "sectionContains": "Cuotas",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-config-system-codes-001",
+    "question": "Que son los Códigos de sistema y para que se usan?",
+    "expected": {
+      "documentTitle": "Módulo 1. Parámetros / Parámetros",
+      "area": "Configuraciones",
+      "sectionContains": "Códigos de sistema",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-config-system-codes-002",
+    "question": "Como se agrega un código de sistema?",
+    "expected": {
+      "documentTitle": "Módulo 1. Parámetros / Parámetros",
+      "area": "Configuraciones",
+      "sectionContains": "Agregar un código de sistema",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-config-required-fields-001",
+    "question": "Como se marca un campo como obligatorio?",
+    "expected": {
+      "documentTitle": "Módulo 1. Parámetros / Parámetros",
+      "area": "Configuraciones",
+      "sectionContains": "Campos obligatorios",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-config-dynamic-fields-001",
+    "question": "Como se crean Campos dinámicos personalizados?",
+    "expected": {
+      "documentTitle": "Módulo 1. Parámetros / Parámetros",
+      "area": "Configuraciones",
+      "sectionContains": "Campos dinámicos",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-config-locations-001",
+    "question": "Como se configura la division territorial o Ubicaciones geográficas?",
+    "expected": {
+      "documentTitle": "Módulo 1. Parámetros / Parámetros",
+      "area": "Configuraciones",
+      "sectionContains": "Ubicaciones geográficas",
+      "shouldHaveEvidence": true
+    }
+  },
+  {
+    "id": "phase8-negative-hr-vacations-001",
+    "question": "Cual es la politica interna de vacaciones de Innovasoft?",
+    "expected": {
+      "documentTitle": null,
+      "area": null,
+      "sectionContains": null,
+      "shouldHaveEvidence": false
+    }
+  },
+  {
+    "id": "phase8-negative-payroll-001",
+    "question": "Como se calcula la nomina y las prestaciones sociales de empleados?",
+    "expected": {
+      "documentTitle": null,
+      "area": null,
+      "sectionContains": null,
+      "shouldHaveEvidence": false
+    }
+  },
+  {
+    "id": "phase8-negative-travel-001",
+    "question": "Cual es el procedimiento para solicitar viaticos de viaje corporativo?",
+    "expected": {
+      "documentTitle": null,
+      "area": null,
+      "sectionContains": null,
+      "shouldHaveEvidence": false
+    }
+  },
+  {
+    "id": "phase8-negative-product-001",
+    "question": "Como se configura el inventario de bodegas en un sistema logistico externo?",
+    "expected": {
+      "documentTitle": null,
+      "area": null,
+      "sectionContains": null,
+      "shouldHaveEvidence": false
+    }
+  }
+]
