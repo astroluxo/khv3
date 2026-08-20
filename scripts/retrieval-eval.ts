@@ -22,6 +22,9 @@ type EvalExpected = {
   area: string | null;
   sectionContains: string | null;
   shouldHaveEvidence: boolean;
+  nearNegative?: boolean;
+  relatedDocumentTitle?: string | null;
+  unsupportedRationale?: string | null;
 };
 
 export type EvalCase = {
@@ -63,6 +66,7 @@ export type CaseObservation = {
   id: string;
   question: string;
   expected: EvalExpected;
+  classification: "positive" | "far_negative" | "near_negative";
   retrievedResultCount: number;
   top1Document: string | null;
   top1Area: string | null;
@@ -82,6 +86,8 @@ export type CaseObservation = {
 export type RetrievalSummary = {
   totalCases: number;
   positiveCases: number;
+  farNegativeCases: number;
+  nearNegativeCases: number;
   negativeCases: number;
   positiveTop1DocumentAccuracy: number;
   positiveTop3DocumentRecall: number;
@@ -90,6 +96,10 @@ export type RetrievalSummary = {
   positiveSectionHitRate: number;
   negativeZeroEvidenceRate: number;
   negativeIrrelevantEvidenceRate: number;
+  farNegativeZeroEvidenceRate: number;
+  farNegativeIrrelevantEvidenceRate: number;
+  nearNegativeZeroEvidenceRate: number;
+  nearNegativeIrrelevantEvidenceRate: number;
   perArea: Record<
     string,
     {
@@ -126,8 +136,12 @@ export type ConfusionMetrics = {
   recall: number;
   specificity: number;
   accuracy: number;
+  farNegativeFalsePositiveRate: number;
+  nearNegativeFalsePositiveRate: number;
   rejectedPositiveCaseIds: string[];
   acceptedNegativeCaseIds: string[];
+  acceptedFarNegativeCaseIds: string[];
+  acceptedNearNegativeCaseIds: string[];
 };
 
 export type StrategyComparison = {
@@ -143,8 +157,36 @@ export type BenchmarkArtifact = {
   openAIQueryEmbeddingRequests: number;
   summary: RetrievalSummary;
   strategyComparison: StrategyComparison[];
+  lexicalOverlapDistributions: {
+    positiveMaxOverlap: DistributionSummary;
+    farNegativeMaxOverlap: DistributionSummary;
+    nearNegativeMaxOverlap: DistributionSummary;
+  };
+  lexicalThresholdSweep: ThresholdComparison[];
   observations: CaseObservation[];
   notes: string[];
+};
+
+export type DistributionSummary = {
+  min: number | null;
+  p25: number | null;
+  median: number | null;
+  p75: number | null;
+  max: number | null;
+};
+
+export type ThresholdComparison = {
+  threshold: number;
+  truePositive: number;
+  falsePositive: number;
+  trueNegative: number;
+  falseNegative: number;
+  positiveRecall: number;
+  farNegativeSpecificity: number;
+  nearNegativeSpecificity: number;
+  totalSpecificity: number;
+  falsePositiveCaseIds: string[];
+  falseNegativeCaseIds: string[];
 };
 
 type RuntimeEnv = Record<string, string | undefined>;
@@ -227,13 +269,31 @@ export function validateFixtureCases(value: unknown): EvalCase[] {
     const documentTitle = nullableString(expected.documentTitle);
     const area = nullableString(expected.area);
     const sectionContains = nullableString(expected.sectionContains);
+    const nearNegative = expected.nearNegative === true;
+    const relatedDocumentTitle = nullableString(expected.relatedDocumentTitle);
+    const unsupportedRationale = nullableString(expected.unsupportedRationale);
 
     if (expected.shouldHaveEvidence) {
       if (!documentTitle || !area || !sectionContains) {
         throw new Error(`Positive fixture case ${item.id} must include document, area, section`);
       }
-    } else if (documentTitle !== null || area !== null || sectionContains !== null) {
-      throw new Error(`Negative fixture case ${item.id} must use null expected fields`);
+      if (nearNegative) {
+        throw new Error(`Positive fixture case ${item.id} must not be marked nearNegative`);
+      }
+    } else {
+      if (documentTitle !== null || sectionContains !== null) {
+        throw new Error(`Negative fixture case ${item.id} must use null document and section`);
+      }
+      if (nearNegative && (!area || !relatedDocumentTitle || !unsupportedRationale)) {
+        throw new Error(
+          `Near-negative fixture case ${item.id} must include area, relatedDocumentTitle, and unsupportedRationale`,
+        );
+      }
+      if (!nearNegative && (relatedDocumentTitle !== null || unsupportedRationale !== null)) {
+        throw new Error(
+          `Far-negative fixture case ${item.id} must not include near-negative metadata`,
+        );
+      }
     }
 
     return {
@@ -244,6 +304,9 @@ export function validateFixtureCases(value: unknown): EvalCase[] {
         area,
         sectionContains,
         shouldHaveEvidence: expected.shouldHaveEvidence,
+        ...(nearNegative ? { nearNegative } : {}),
+        ...(relatedDocumentTitle ? { relatedDocumentTitle } : {}),
+        ...(unsupportedRationale ? { unsupportedRationale } : {}),
       },
     };
   });
@@ -259,6 +322,7 @@ export function evaluateCase(testCase: EvalCase, results: RetrievalResult[]): Ca
     id: testCase.id,
     question: testCase.question,
     expected: testCase.expected,
+    classification: classifyCase(testCase),
     retrievedResultCount: results.length,
     top1Document: top?.document.title ?? null,
     top1Area: top?.document.area ?? null,
@@ -279,6 +343,12 @@ export function evaluateCase(testCase: EvalCase, results: RetrievalResult[]): Ca
 export function summarizeObservations(observations: CaseObservation[]): RetrievalSummary {
   const positives = observations.filter((observation) => observation.expected.shouldHaveEvidence);
   const negatives = observations.filter((observation) => !observation.expected.shouldHaveEvidence);
+  const farNegatives = observations.filter(
+    (observation) => observation.classification === "far_negative",
+  );
+  const nearNegatives = observations.filter(
+    (observation) => observation.classification === "near_negative",
+  );
   const perArea: RetrievalSummary["perArea"] = {};
 
   for (const observation of positives) {
@@ -314,6 +384,8 @@ export function summarizeObservations(observations: CaseObservation[]): Retrieva
   return {
     totalCases: observations.length,
     positiveCases: positives.length,
+    farNegativeCases: farNegatives.length,
+    nearNegativeCases: nearNegatives.length,
     negativeCases: negatives.length,
     positiveTop1DocumentAccuracy: ratio(
       positives.filter((observation) => observation.expectedDocumentTop1).length,
@@ -343,6 +415,10 @@ export function summarizeObservations(observations: CaseObservation[]): Retrieva
       negatives.filter((observation) => observation.retrievedResultCount > 0).length,
       negatives.length,
     ),
+    farNegativeZeroEvidenceRate: zeroEvidenceRate(farNegatives),
+    farNegativeIrrelevantEvidenceRate: irrelevantEvidenceRate(farNegatives),
+    nearNegativeZeroEvidenceRate: zeroEvidenceRate(nearNegatives),
+    nearNegativeIrrelevantEvidenceRate: irrelevantEvidenceRate(nearNegatives),
     perArea,
   };
 }
@@ -446,6 +522,8 @@ export function calculateConfusionMetrics(
   let falseNegative = 0;
   const rejectedPositiveCaseIds: string[] = [];
   const acceptedNegativeCaseIds: string[] = [];
+  const acceptedFarNegativeCaseIds: string[] = [];
+  const acceptedNearNegativeCaseIds: string[] = [];
 
   for (const { observation, decision: strategyDecision } of decisions) {
     const expectedPositive = observation.expected.shouldHaveEvidence;
@@ -453,6 +531,12 @@ export function calculateConfusionMetrics(
     if (!expectedPositive && strategyDecision.sufficient) {
       falsePositive += 1;
       acceptedNegativeCaseIds.push(observation.id);
+      if (observation.classification === "far_negative") {
+        acceptedFarNegativeCaseIds.push(observation.id);
+      }
+      if (observation.classification === "near_negative") {
+        acceptedNearNegativeCaseIds.push(observation.id);
+      }
     }
     if (!expectedPositive && !strategyDecision.sufficient) trueNegative += 1;
     if (expectedPositive && !strategyDecision.sufficient) {
@@ -470,9 +554,87 @@ export function calculateConfusionMetrics(
     recall: ratio(truePositive, truePositive + falseNegative),
     specificity: ratio(trueNegative, trueNegative + falsePositive),
     accuracy: ratio(truePositive + trueNegative, decisions.length),
+    farNegativeFalsePositiveRate: ratio(
+      acceptedFarNegativeCaseIds.length,
+      decisions.filter(({ observation }) => observation.classification === "far_negative").length,
+    ),
+    nearNegativeFalsePositiveRate: ratio(
+      acceptedNearNegativeCaseIds.length,
+      decisions.filter(({ observation }) => observation.classification === "near_negative").length,
+    ),
     rejectedPositiveCaseIds,
     acceptedNegativeCaseIds,
+    acceptedFarNegativeCaseIds,
+    acceptedNearNegativeCaseIds,
   };
+}
+
+export function summarizeLexicalOverlapDistributions(observations: CaseObservation[]): {
+  positiveMaxOverlap: DistributionSummary;
+  farNegativeMaxOverlap: DistributionSummary;
+  nearNegativeMaxOverlap: DistributionSummary;
+} {
+  return {
+    positiveMaxOverlap: distribution(
+      observations
+        .filter((observation) => observation.classification === "positive")
+        .map((observation) => observation.signals.maxQueryOverlap),
+    ),
+    farNegativeMaxOverlap: distribution(
+      observations
+        .filter((observation) => observation.classification === "far_negative")
+        .map((observation) => observation.signals.maxQueryOverlap),
+    ),
+    nearNegativeMaxOverlap: distribution(
+      observations
+        .filter((observation) => observation.classification === "near_negative")
+        .map((observation) => observation.signals.maxQueryOverlap),
+    ),
+  };
+}
+
+export function evaluateLexicalThresholds(
+  observations: CaseObservation[],
+  thresholds = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.6],
+): ThresholdComparison[] {
+  return thresholds.map((threshold) => {
+    const decisions = observations.map((observation) => ({
+      observation,
+      sufficient: observation.signals.maxQueryOverlap >= threshold,
+    }));
+    const falsePositiveCaseIds = decisions
+      .filter(
+        ({ observation, sufficient }) => !observation.expected.shouldHaveEvidence && sufficient,
+      )
+      .map(({ observation }) => observation.id);
+    const falseNegativeCaseIds = decisions
+      .filter(
+        ({ observation, sufficient }) => observation.expected.shouldHaveEvidence && !sufficient,
+      )
+      .map(({ observation }) => observation.id);
+    const truePositive = decisions.filter(
+      ({ observation, sufficient }) => observation.expected.shouldHaveEvidence && sufficient,
+    ).length;
+    const falsePositive = falsePositiveCaseIds.length;
+    const trueNegative = decisions.filter(
+      ({ observation, sufficient }) => !observation.expected.shouldHaveEvidence && !sufficient,
+    ).length;
+    const falseNegative = falseNegativeCaseIds.length;
+
+    return {
+      threshold,
+      truePositive,
+      falsePositive,
+      trueNegative,
+      falseNegative,
+      positiveRecall: ratio(truePositive, truePositive + falseNegative),
+      farNegativeSpecificity: specificityFor(decisions, "far_negative"),
+      nearNegativeSpecificity: specificityFor(decisions, "near_negative"),
+      totalSpecificity: ratio(trueNegative, trueNegative + falsePositive),
+      falsePositiveCaseIds,
+      falseNegativeCaseIds,
+    };
+  });
 }
 
 export async function runRetrievalBenchmark(options: {
@@ -513,6 +675,8 @@ export async function runRetrievalBenchmark(options: {
     openAIQueryEmbeddingRequests: embeddingClient.requestCount,
     summary: summarizeObservations(observations),
     strategyComparison: evaluateStrategies(observations),
+    lexicalOverlapDistributions: summarizeLexicalOverlapDistributions(observations),
+    lexicalThresholdSweep: evaluateLexicalThresholds(observations),
     observations,
     notes: [
       "No raw embeddings, secrets, JWTs, or service-role credentials are stored in this artifact.",
@@ -605,6 +769,58 @@ function findExpectedSectionRank(testCase: EvalCase, results: RetrievalResult[])
   return index >= 0 ? index + 1 : null;
 }
 
+function classifyCase(testCase: EvalCase): CaseObservation["classification"] {
+  if (testCase.expected.shouldHaveEvidence) return "positive";
+  return testCase.expected.nearNegative ? "near_negative" : "far_negative";
+}
+
+function zeroEvidenceRate(observations: CaseObservation[]): number {
+  return ratio(
+    observations.filter((observation) => observation.retrievedResultCount === 0).length,
+    observations.length,
+  );
+}
+
+function irrelevantEvidenceRate(observations: CaseObservation[]): number {
+  return ratio(
+    observations.filter((observation) => observation.retrievedResultCount > 0).length,
+    observations.length,
+  );
+}
+
+function distribution(values: number[]): DistributionSummary {
+  if (values.length === 0) {
+    return { min: null, p25: null, median: null, p75: null, max: null };
+  }
+  const sorted = [...values].sort((left, right) => left - right);
+  return {
+    min: sorted[0],
+    p25: percentile(sorted, 0.25),
+    median: percentile(sorted, 0.5),
+    p75: percentile(sorted, 0.75),
+    max: sorted[sorted.length - 1],
+  };
+}
+
+function percentile(sortedValues: number[], quantile: number): number {
+  if (sortedValues.length === 1) return sortedValues[0];
+  const index = (sortedValues.length - 1) * quantile;
+  const lowerIndex = Math.floor(index);
+  const upperIndex = Math.ceil(index);
+  const weight = index - lowerIndex;
+  return round(sortedValues[lowerIndex] * (1 - weight) + sortedValues[upperIndex] * weight);
+}
+
+function specificityFor(
+  decisions: Array<{ observation: CaseObservation; sufficient: boolean }>,
+  classification: "far_negative" | "near_negative",
+): number {
+  const relevant = decisions.filter(
+    ({ observation }) => observation.classification === classification,
+  );
+  return ratio(relevant.filter(({ sufficient }) => !sufficient).length, relevant.length);
+}
+
 function queryOverlap(query: string, fields: string[]): number {
   const queryTokens = tokenize(query);
   if (queryTokens.length === 0) return 0;
@@ -691,7 +907,7 @@ function printSummary(artifact: BenchmarkArtifact): void {
   console.log("Retrieval benchmark complete");
   console.log(`Fixture: ${artifact.fixturePath}`);
   console.log(
-    `Cases: ${summary.totalCases} (${summary.positiveCases} positive, ${summary.negativeCases} negative)`,
+    `Cases: ${summary.totalCases} (${summary.positiveCases} positive, ${summary.farNegativeCases} far negative, ${summary.nearNegativeCases} near negative)`,
   );
   console.log(`Top-1 document accuracy: ${percent(summary.positiveTop1DocumentAccuracy)}`);
   console.log(`Top-3 document recall: ${percent(summary.positiveTop3DocumentRecall)}`);
@@ -701,6 +917,13 @@ function printSummary(artifact: BenchmarkArtifact): void {
   console.log(`Negative zero-evidence rate: ${percent(summary.negativeZeroEvidenceRate)}`);
   console.log(
     `Negative irrelevant-evidence rate: ${percent(summary.negativeIrrelevantEvidenceRate)}`,
+  );
+  console.log(`Near-negative zero-evidence rate: ${percent(summary.nearNegativeZeroEvidenceRate)}`);
+  console.log(
+    `Near-negative irrelevant-evidence rate: ${percent(summary.nearNegativeIrrelevantEvidenceRate)}`,
+  );
+  console.log(
+    `Lexical max-overlap ranges: positive=${formatDistribution(artifact.lexicalOverlapDistributions.positiveMaxOverlap)}, far-negative=${formatDistribution(artifact.lexicalOverlapDistributions.farNegativeMaxOverlap)}, near-negative=${formatDistribution(artifact.lexicalOverlapDistributions.nearNegativeMaxOverlap)}`,
   );
   console.log(`OpenAI query embedding requests: ${artifact.openAIQueryEmbeddingRequests}`);
   console.log("Strategy comparison:");
@@ -715,6 +938,11 @@ function printSummary(artifact: BenchmarkArtifact): void {
 
 function percent(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
+}
+
+function formatDistribution(distributionSummary: DistributionSummary): string {
+  if (distributionSummary.min === null) return "n/a";
+  return `${distributionSummary.min}/${distributionSummary.p25}/${distributionSummary.median}/${distributionSummary.p75}/${distributionSummary.max}`;
 }
 
 const STOPWORDS = new Set([

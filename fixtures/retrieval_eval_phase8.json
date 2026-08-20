@@ -358,5 +358,213 @@
       "sectionContains": null,
       "shouldHaveEvidence": false
     }
+  },
+  {
+    "id": "phase9b-near-matricula-deadline-001",
+    "question": "Cual es la fecha limite exacta para completar una matricula tardia?",
+    "expected": {
+      "documentTitle": null,
+      "area": "Académica",
+      "sectionContains": null,
+      "shouldHaveEvidence": false,
+      "nearNegative": true,
+      "relatedDocumentTitle": "Módulo 10: Matrícula",
+      "unsupportedRationale": "La corpus describe el proceso de matricula y fechas parametrizadas, pero no una fecha limite exacta para matricula tardia."
+    }
+  },
+  {
+    "id": "phase9b-near-matricula-override-001",
+    "question": "Quien puede aprobar una excepcion para matricular cursos con choque de horario?",
+    "expected": {
+      "documentTitle": null,
+      "area": "Académica",
+      "sectionContains": null,
+      "shouldHaveEvidence": false,
+      "nearNegative": true,
+      "relatedDocumentTitle": "Módulo 10: Matrícula",
+      "unsupportedRationale": "La corpus indica que los choques impiden la matricula, pero no documenta una autoridad de excepcion."
+    }
+  },
+  {
+    "id": "phase9b-near-matricula-penalty-001",
+    "question": "Que multa o penalidad se cobra por realizar la matricula fuera de plazo?",
+    "expected": {
+      "documentTitle": null,
+      "area": "Académica",
+      "sectionContains": null,
+      "shouldHaveEvidence": false,
+      "nearNegative": true,
+      "relatedDocumentTitle": "Módulo 10: Matrícula",
+      "unsupportedRationale": "La corpus no contiene multas ni penalidades por matricula fuera de plazo."
+    }
+  },
+  {
+    "id": "phase9b-near-calificacion-reversal-limit-001",
+    "question": "Cual es el numero maximo de reversiones de cierre de acta permitidas?",
+    "expected": {
+      "documentTitle": null,
+      "area": "Académica",
+      "sectionContains": null,
+      "shouldHaveEvidence": false,
+      "nearNegative": true,
+      "relatedDocumentTitle": "Módulo 11: Calificación",
+      "unsupportedRationale": "La corpus menciona historico de reversion de cierre de acta, pero no un maximo permitido."
+    }
+  },
+  {
+    "id": "phase9b-near-calificacion-correction-deadline-001",
+    "question": "Cuantos dias tiene un docente para corregir una calificacion despues del cierre?",
+    "expected": {
+      "documentTitle": null,
+      "area": "Académica",
+      "sectionContains": null,
+      "shouldHaveEvidence": false,
+      "nearNegative": true,
+      "relatedDocumentTitle": "Módulo 11: Calificación",
+      "unsupportedRationale": "La corpus describe ingreso y proceso de calificaciones, pero no un plazo en dias para correcciones posteriores."
+    }
+  },
+  {
+    "id": "phase9b-near-calificacion-retention-001",
+    "question": "Por cuantos anos se deben conservar legalmente los registros de asistencia?",
+    "expected": {
+      "documentTitle": null,
+      "area": "Académica",
+      "sectionContains": null,
+      "shouldHaveEvidence": false,
+      "nearNegative": true,
+      "relatedDocumentTitle": "Módulo 11: Calificación",
+      "unsupportedRationale": "La corpus describe registro de asistencia, pero no una retencion legal en anos."
+    }
+  },
+  {
+    "id": "phase9b-near-seguridad-mfa-001",
+    "question": "La plataforma exige MFA o doble factor para ingresar al portal de estudiantes?",
+    "expected": {
+      "documentTitle": null,
+      "area": "Seguridad",
+      "sectionContains": null,
+      "shouldHaveEvidence": false,
+      "nearNegative": true,
+      "relatedDocumentTitle": "Módulo 3. Seguridad",
+      "unsupportedRationale": "La corpus cubre politicas de contrasena y portales, pero no una politica de MFA."
+    }
+  },
+  {
+    "id": "phase9b-near-seguridad-lock-duration-001",
+    "question": "Durante cuantos minutos queda bloqueada una cuenta despues de intentos fallidos?",
+    "expected": {
+      "documentTitle": null,
+      "area": "Seguridad",
+      "sectionContains": null,
+      "shouldHaveEvidence": false,
+      "nearNegative": true,
+      "relatedDocumentTitle": "Módulo 3. Seguridad",
+      "unsupportedRationale": "La corpus no documenta duracion de bloqueo ni intentos fallidos."
+    }
+  },
+  {
+    "id": "phase9b-near-seguridad-recovery-sla-001",
+    "question": "Cual es el SLA para atender una solicitud de recuperacion de contrasena?",
+    "expected": {
+      "documentTitle": null,
+      "area": "Seguridad",
+      "sectionContains": null,
+      "shouldHaveEvidence": false,
+      "nearNegative": true,
+      "relatedDocumentTitle": "Módulo 3. Seguridad",
+      "unsupportedRationale": "La corpus explica como generar solicitudes de contrasena, pero no un SLA de atencion."
+    }
+  },
+  {
+    "id": "phase9b-near-financiera-refund-001",
+    "question": "En cuantos dias se devuelve el dinero despues de anular una factura?",
+    "expected": {
+      "documentTitle": null,
+      "area": "Financiera",
+      "sectionContains": null,
+      "shouldHaveEvidence": false,
+      "nearNegative": true,
+      "relatedDocumentTitle": "Módulo 5: Procesos/Facturación",
+      "unsupportedRationale": "La corpus describe facturacion y pagos, pero no devoluciones ni tiempos de reembolso."
+    }
+  },
+  {
+    "id": "phase9b-near-financiera-late-fee-001",
+    "question": "Que porcentaje de interes de mora se cobra por pagos atrasados?",
+    "expected": {
+      "documentTitle": null,
+      "area": "Financiera",
+      "sectionContains": null,
+      "shouldHaveEvidence": false,
+      "nearNegative": true,
+      "relatedDocumentTitle": "Módulo 5: Procesos/Facturación",
+      "unsupportedRationale": "La corpus no contiene tasas de interes de mora ni penalidades por atraso."
+    }
+  },
+  {
+    "id": "phase9b-near-financiera-grace-period-001",
+    "question": "Cuantos dias de gracia tiene una cuota antes de marcarse vencida?",
+    "expected": {
+      "documentTitle": null,
+      "area": "Financiera",
+      "sectionContains": null,
+      "shouldHaveEvidence": false,
+      "nearNegative": true,
+      "relatedDocumentTitle": "Módulo 5: Procesos/Facturación",
+      "unsupportedRationale": "La corpus menciona cuotas y cronograma de pagos, pero no dias de gracia."
+    }
+  },
+  {
+    "id": "phase9b-near-config-approval-001",
+    "question": "Quien debe aprobar la creacion de un campo dinamico personalizado?",
+    "expected": {
+      "documentTitle": null,
+      "area": "Configuraciones",
+      "sectionContains": null,
+      "shouldHaveEvidence": false,
+      "nearNegative": true,
+      "relatedDocumentTitle": "Módulo 1. Parámetros / Parámetros",
+      "unsupportedRationale": "La corpus describe como crear campos dinamicos, pero no un flujo de aprobacion."
+    }
+  },
+  {
+    "id": "phase9b-near-config-version-retention-001",
+    "question": "Cuantas versiones anteriores de los codigos de sistema se conservan?",
+    "expected": {
+      "documentTitle": null,
+      "area": "Configuraciones",
+      "sectionContains": null,
+      "shouldHaveEvidence": false,
+      "nearNegative": true,
+      "relatedDocumentTitle": "Módulo 1. Parámetros / Parámetros",
+      "unsupportedRationale": "La corpus cubre codigos de sistema, pero no retencion de versiones anteriores."
+    }
+  },
+  {
+    "id": "phase9b-near-homologaciones-processing-time-001",
+    "question": "Cuantos dias habiles tarda la aprobacion de una homologacion de cursos?",
+    "expected": {
+      "documentTitle": null,
+      "area": "Académica",
+      "sectionContains": null,
+      "shouldHaveEvidence": false,
+      "nearNegative": true,
+      "relatedDocumentTitle": "Módulo 6. Homologaciones - Faltas de asistencia - Consecutivo actas de grado y diplomas",
+      "unsupportedRationale": "La corpus describe homologacion de cursos, pero no tiempos de aprobacion."
+    }
+  },
+  {
+    "id": "phase9b-near-homologaciones-course-limit-001",
+    "question": "Cual es el numero maximo de cursos que un estudiante puede homologar?",
+    "expected": {
+      "documentTitle": null,
+      "area": "Académica",
+      "sectionContains": null,
+      "shouldHaveEvidence": false,
+      "nearNegative": true,
+      "relatedDocumentTitle": "Módulo 6. Homologaciones - Faltas de asistencia - Consecutivo actas de grado y diplomas",
+      "unsupportedRationale": "La corpus no documenta un maximo de cursos homologables."
+    }
   }
 ]

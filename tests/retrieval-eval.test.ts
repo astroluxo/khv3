@@ -5,10 +5,11 @@ import { describe, expect, it } from "vitest";
 import {
   calculateConfusionMetrics,
   evaluateCase,
+  evaluateLexicalThresholds,
   evaluateStrategies,
+  summarizeLexicalOverlapDistributions,
   summarizeObservations,
   validateFixtureCases,
-  type CaseObservation,
   type EvalCase,
 } from "../scripts/retrieval-eval.ts";
 import type { RetrievalResult } from "../supabase/functions/_shared/retrieval.ts";
@@ -61,9 +62,20 @@ describe("retrieval benchmark fixture validation", () => {
     const text = readFileSync(join(root, "fixtures/retrieval_eval_phase8.json"), "utf8");
     const cases = validateFixtureCases(JSON.parse(text));
 
-    expect(cases).toHaveLength(36);
+    expect(cases).toHaveLength(52);
     expect(cases.filter((testCase) => testCase.expected.shouldHaveEvidence)).toHaveLength(24);
-    expect(cases.filter((testCase) => !testCase.expected.shouldHaveEvidence)).toHaveLength(12);
+    expect(
+      cases.filter(
+        (testCase) =>
+          !testCase.expected.shouldHaveEvidence && testCase.expected.nearNegative !== true,
+      ),
+    ).toHaveLength(12);
+    expect(
+      cases.filter(
+        (testCase) =>
+          !testCase.expected.shouldHaveEvidence && testCase.expected.nearNegative === true,
+      ),
+    ).toHaveLength(16);
     expect(new Set(cases.map((testCase) => testCase.id)).size).toBe(cases.length);
   });
 
@@ -82,6 +94,24 @@ describe("retrieval benchmark fixture validation", () => {
         },
       ]),
     ).toThrow(/Positive fixture case/);
+  });
+
+  it("requires near-negative metadata for near-negative fixture cases", () => {
+    expect(() =>
+      validateFixtureCases([
+        {
+          id: "near-bad",
+          question: "Cual es el plazo exacto?",
+          expected: {
+            documentTitle: null,
+            area: "Académica",
+            sectionContains: null,
+            shouldHaveEvidence: false,
+            nearNegative: true,
+          },
+        },
+      ]),
+    ).toThrow(/Near-negative fixture case/);
   });
 });
 
@@ -161,6 +191,81 @@ describe("retrieval benchmark metrics", () => {
 
     expect(summary.negativeZeroEvidenceRate).toBe(0.5);
     expect(summary.negativeIrrelevantEvidenceRate).toBe(0.5);
+  });
+
+  it("separates far-negative and near-negative summary metrics", () => {
+    const farNegative = fixtureCase({
+      id: "far-negative",
+      expected: {
+        documentTitle: null,
+        area: null,
+        sectionContains: null,
+        shouldHaveEvidence: false,
+      },
+    });
+    const nearNegative = fixtureCase({
+      id: "near-negative",
+      expected: {
+        documentTitle: null,
+        area: "Académica",
+        sectionContains: null,
+        shouldHaveEvidence: false,
+        nearNegative: true,
+        relatedDocumentTitle: "Módulo 11: Calificación",
+        unsupportedRationale: "No exact deadline is documented.",
+      },
+    });
+
+    const summary = summarizeObservations([
+      evaluateCase(farNegative, []),
+      evaluateCase(nearNegative, [result()]),
+    ]);
+
+    expect(summary.farNegativeCases).toBe(1);
+    expect(summary.nearNegativeCases).toBe(1);
+    expect(summary.farNegativeZeroEvidenceRate).toBe(1);
+    expect(summary.nearNegativeIrrelevantEvidenceRate).toBe(1);
+  });
+
+  it("summarizes lexical-overlap distributions", () => {
+    const observations = [
+      evaluateCase(fixtureCase({ id: "positive" }), [result()]),
+      evaluateCase(
+        fixtureCase({
+          id: "far",
+          question: "Politica de vacaciones",
+          expected: {
+            documentTitle: null,
+            area: null,
+            sectionContains: null,
+            shouldHaveEvidence: false,
+          },
+        }),
+        [result({ content: "Contenido sobre asistencia academica." })],
+      ),
+      evaluateCase(
+        fixtureCase({
+          id: "near",
+          question: "Cuantos dias tiene el control de asistencia?",
+          expected: {
+            documentTitle: null,
+            area: "Académica",
+            sectionContains: null,
+            shouldHaveEvidence: false,
+            nearNegative: true,
+            relatedDocumentTitle: "Módulo 11: Calificación",
+            unsupportedRationale: "No exact days are documented.",
+          },
+        }),
+        [result()],
+      ),
+    ];
+
+    const distributions = summarizeLexicalOverlapDistributions(observations);
+
+    expect(distributions.positiveMaxOverlap.max).toBeGreaterThan(0);
+    expect(distributions.farNegativeMaxOverlap.max).toBe(0);
+    expect(distributions.nearNegativeMaxOverlap.max).toBeGreaterThan(0);
   });
 });
 
@@ -289,5 +394,84 @@ describe("retrieval sufficiency strategy evaluation", () => {
     expect(metrics.acceptedNegativeCaseIds).toEqual(["negative-accepted"]);
     expect(metrics.recall).toBe(0);
     expect(metrics.specificity).toBe(0);
+    expect(metrics.farNegativeFalsePositiveRate).toBe(1);
+    expect(metrics.nearNegativeFalsePositiveRate).toBe(0);
+  });
+
+  it("tracks near-negative false-positive rates separately", () => {
+    const acceptedNearNegative = evaluateCase(
+      fixtureCase({
+        id: "near-negative-accepted",
+        expected: {
+          documentTitle: null,
+          area: "Académica",
+          sectionContains: null,
+          shouldHaveEvidence: false,
+          nearNegative: true,
+          relatedDocumentTitle: "Módulo 11: Calificación",
+          unsupportedRationale: "No exact limit is documented.",
+        },
+      }),
+      [result()],
+    );
+
+    const metrics = calculateConfusionMetrics([
+      {
+        observation: acceptedNearNegative,
+        decision: {
+          strategyId: "strategy0_any_retrieval",
+          label: "test",
+          sufficient: true,
+          reason: "nonempty",
+        },
+      },
+    ]);
+
+    expect(metrics.nearNegativeFalsePositiveRate).toBe(1);
+    expect(metrics.acceptedNearNegativeCaseIds).toEqual(["near-negative-accepted"]);
+  });
+
+  it("evaluates lexical threshold sweep metrics", () => {
+    const positive = evaluateCase(fixtureCase({ id: "positive" }), [result()]);
+    const farNegative = evaluateCase(
+      fixtureCase({
+        id: "far-negative",
+        question: "Politica de vacaciones",
+        expected: {
+          documentTitle: null,
+          area: null,
+          sectionContains: null,
+          shouldHaveEvidence: false,
+        },
+      }),
+      [result({ content: "Contenido sobre asistencia academica." })],
+    );
+    const nearNegative = evaluateCase(
+      fixtureCase({
+        id: "near-negative",
+        question: "Cuantos dias tiene el control de asistencia?",
+        expected: {
+          documentTitle: null,
+          area: "Académica",
+          sectionContains: null,
+          shouldHaveEvidence: false,
+          nearNegative: true,
+          relatedDocumentTitle: "Módulo 11: Calificación",
+          unsupportedRationale: "No exact days are documented.",
+        },
+      }),
+      [result()],
+    );
+
+    const sweep = evaluateLexicalThresholds([positive, farNegative, nearNegative], [0.1, 0.9]);
+
+    expect(sweep[0]).toMatchObject({
+      threshold: 0.1,
+      positiveRecall: 1,
+      farNegativeSpecificity: 1,
+      nearNegativeSpecificity: 0,
+      falsePositive: 1,
+    });
+    expect(sweep[1].falseNegative).toBeGreaterThan(0);
   });
 });

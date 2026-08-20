@@ -29,6 +29,12 @@ The command uses real OpenAI query embeddings and the production retrieval servi
 Supabase. It writes the safe machine-readable result artifact to
 `.supabase/retrieval-eval-phase9.json`, which is intentionally ignored by Git.
 
+The Phase 9 fixture separates positive questions, far negatives, and near negatives. Near negatives
+are domain-relevant questions that resemble supported procedures but ask for undocumented limits,
+deadlines, authorities, penalties, or policy values. The benchmark reports near-negative behavior and
+lexical-threshold sweeps for analysis only; production retrieval and abstention behavior are not
+changed by the benchmark.
+
 ## Per-case fields
 
 - `id`
