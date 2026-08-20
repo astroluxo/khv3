@@ -1,6 +1,6 @@
 import { chunkSections } from "../_shared/chunking.ts";
+import { fetchPageAsSections } from "../_shared/notion-normalizer.ts";
 import { embedText } from "../_shared/openai.ts";
-import { fetchPageAsSections } from "../_shared/notion.ts";
 import { serviceClient } from "../_shared/supabase.ts";
 
 Deno.serve(async (req) => {
