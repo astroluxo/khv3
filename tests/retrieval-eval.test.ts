@@ -5,8 +5,11 @@ import { describe, expect, it } from "vitest";
 import {
   calculateConfusionMetrics,
   evaluateCase,
+  evaluateCompositeParameterSweep,
+  evaluateCompositeStrategies,
   evaluateLexicalThresholds,
   evaluateStrategies,
+  summarizeCompositeSignalDistributions,
   summarizeLexicalOverlapDistributions,
   summarizeObservations,
   validateFixtureCases,
@@ -77,6 +80,24 @@ describe("retrieval benchmark fixture validation", () => {
       ),
     ).toHaveLength(16);
     expect(new Set(cases.map((testCase) => testCase.id)).size).toBe(cases.length);
+  });
+
+  it("validates the Phase 9C paraphrase fixture separately", () => {
+    const text = readFileSync(
+      join(root, "fixtures/retrieval_eval_phase9c_paraphrases.json"),
+      "utf8",
+    );
+    const cases = validateFixtureCases(JSON.parse(text), "paraphrase");
+
+    expect(cases).toHaveLength(16);
+    expect(cases.filter((testCase) => testCase.expected.shouldHaveEvidence)).toHaveLength(8);
+    expect(
+      cases.filter(
+        (testCase) =>
+          !testCase.expected.shouldHaveEvidence && testCase.expected.nearNegative === true,
+      ),
+    ).toHaveLength(8);
+    expect(cases.every((testCase) => testCase.suite === "paraphrase")).toBe(true);
   });
 
   it("rejects malformed positive cases without expected document metadata", () => {
@@ -266,6 +287,132 @@ describe("retrieval benchmark metrics", () => {
     expect(distributions.positiveMaxOverlap.max).toBeGreaterThan(0);
     expect(distributions.farNegativeMaxOverlap.max).toBe(0);
     expect(distributions.nearNegativeMaxOverlap.max).toBeGreaterThan(0);
+  });
+
+  it("calculates composite concentration and token-coverage signals", () => {
+    const observation = evaluateCase(
+      fixtureCase({
+        question: "Cuantos intentos bloquea cuenta contrasena soporte",
+      }),
+      [
+        result({
+          document: {
+            title: "Módulo 3: Seguridad",
+            sourceUrl: "https://notion.local/security",
+            brand: "Class Limitless",
+            area: "Seguridad",
+          },
+          sectionPath: "Módulo 3: Seguridad > Políticas de Contraseña",
+          content: "La contrasena de la cuenta puede configurarse con intentos.",
+          diagnostics: { rank: 1, fusedScore: 0.05, vectorRank: 1, textRank: 1 },
+        }),
+        result({
+          internal: {
+            chunkId: "chunk-2",
+            documentId: "document-security",
+            source: "notion",
+            sourceId: "page-security",
+            accessScope: "default",
+          },
+          document: {
+            title: "Módulo 3: Seguridad",
+            sourceUrl: "https://notion.local/security",
+            brand: "Class Limitless",
+            area: "Seguridad",
+          },
+          sectionPath: "Módulo 3: Seguridad > Políticas de Contraseña",
+          content: "La cuenta se bloquea segun configuracion de seguridad.",
+          diagnostics: { rank: 2, fusedScore: 0.04, vectorRank: 2, textRank: 2 },
+        }),
+        result({
+          internal: {
+            chunkId: "chunk-3",
+            documentId: "document-security",
+            source: "notion",
+            sourceId: "page-security",
+            accessScope: "default",
+          },
+          document: {
+            title: "Módulo 3: Seguridad",
+            sourceUrl: "https://notion.local/security",
+            brand: "Class Limitless",
+            area: "Seguridad",
+          },
+          sectionPath: "Módulo 3: Seguridad > Usuarios",
+          content: "Soporte administra usuarios.",
+          diagnostics: { rank: 3, fusedScore: 0.03, vectorRank: 3, textRank: null },
+        }),
+        result({
+          internal: {
+            chunkId: "chunk-4",
+            documentId: "document-finance",
+            source: "notion",
+            sourceId: "page-finance",
+            accessScope: "default",
+          },
+          document: {
+            title: "Módulo 5: Financiera",
+            sourceUrl: "https://notion.local/finance",
+            brand: "Class Limitless",
+            area: "Financiera",
+          },
+          sectionPath: "Módulo 5: Financiera > Cuotas",
+          content: "Cuotas y pagos.",
+          diagnostics: { rank: 4, fusedScore: 0.02, vectorRank: null, textRank: 3 },
+        }),
+      ],
+    );
+
+    expect(observation.signals.dominantDocument).toBe("Módulo 3: Seguridad");
+    expect(observation.signals.dominantDocumentConcentration).toBe(0.75);
+    expect(observation.signals.dominantSectionConcentration).toBe(0.5);
+    expect(observation.signals.supportingChunkCount).toBe(2);
+    expect(observation.signals.top1Top2DocumentAgreement).toBe(true);
+    expect(observation.signals.queryTokenCoverage).toBeGreaterThan(0.7);
+    expect(observation.signals.specificTokenCoverage).toBeGreaterThan(0.7);
+  });
+
+  it("summarizes composite signal distributions by class", () => {
+    const positive = evaluateCase(fixtureCase({ id: "positive" }), [result()]);
+    const farNegative = evaluateCase(
+      fixtureCase({
+        id: "far-negative",
+        question: "Politica de vacaciones",
+        expected: {
+          documentTitle: null,
+          area: null,
+          sectionContains: null,
+          shouldHaveEvidence: false,
+        },
+      }),
+      [],
+    );
+    const nearNegative = evaluateCase(
+      fixtureCase({
+        id: "near-negative",
+        question: "Cuantos dias tiene el control de asistencia?",
+        expected: {
+          documentTitle: null,
+          area: "Académica",
+          sectionContains: null,
+          shouldHaveEvidence: false,
+          nearNegative: true,
+          relatedDocumentTitle: "Módulo 11: Calificación",
+          unsupportedRationale: "No exact days are documented.",
+        },
+      }),
+      [result()],
+    );
+
+    const distributions = summarizeCompositeSignalDistributions([
+      positive,
+      farNegative,
+      nearNegative,
+    ]);
+
+    expect(distributions.positive.maxLexicalOverlap.max).toBeGreaterThan(0);
+    expect(distributions.farNegative.maxLexicalOverlap.max).toBe(0);
+    expect(distributions.nearNegative.queryTokenCoverage.max).toBeGreaterThan(0);
   });
 });
 
@@ -473,5 +620,40 @@ describe("retrieval sufficiency strategy evaluation", () => {
       falsePositive: 1,
     });
     expect(sweep[1].falseNegative).toBeGreaterThan(0);
+  });
+
+  it("evaluates composite strategies and parameter sweeps", () => {
+    const positive = evaluateCase(fixtureCase({ id: "positive" }), [result()]);
+    const nearNegative = evaluateCase(
+      fixtureCase({
+        id: "near-negative",
+        question: "Cuantos dias tiene el control de asistencia?",
+        expected: {
+          documentTitle: null,
+          area: "Académica",
+          sectionContains: null,
+          shouldHaveEvidence: false,
+          nearNegative: true,
+          relatedDocumentTitle: "Módulo 11: Calificación",
+          unsupportedRationale: "No exact days are documented.",
+        },
+      }),
+      [result({ content: "Control de asistencia del estudiante." })],
+    );
+
+    const comparison = evaluateCompositeStrategies([positive, nearNegative]);
+    const sweep = evaluateCompositeParameterSweep([positive, nearNegative]);
+
+    expect(comparison.map((strategy) => strategy.strategyId)).toEqual([
+      "c0_lexical_only",
+      "c1_overlap_query_coverage",
+      "c2_overlap_supporting_chunks",
+      "c3_overlap_document_concentration",
+      "c4_overlap_section_concentration",
+      "c5_overlap_specific_token_coverage",
+      "c6_simple_three_signal",
+    ]);
+    expect(sweep.length).toBeGreaterThan(comparison.length);
+    expect(sweep[0].metrics.recall).toBeGreaterThanOrEqual(sweep[sweep.length - 1].metrics.recall);
   });
 });

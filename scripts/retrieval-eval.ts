@@ -14,8 +14,10 @@ import {
 } from "../supabase/functions/_shared/retrieval.ts";
 
 const DEFAULT_FIXTURE_PATH = "fixtures/retrieval_eval_phase8.json";
+const DEFAULT_PARAPHRASE_FIXTURE_PATH = "fixtures/retrieval_eval_phase9c_paraphrases.json";
 const DEFAULT_OUTPUT_PATH = ".supabase/retrieval-eval-phase9.json";
 const DEFAULT_LIMIT = 6;
+const DEFAULT_SUPPORTING_CHUNK_OVERLAP = 0.35;
 
 type EvalExpected = {
   documentTitle: string | null;
@@ -31,6 +33,7 @@ export type EvalCase = {
   id: string;
   question: string;
   expected: EvalExpected;
+  suite?: "original" | "paraphrase";
 };
 
 export type CandidateObservation = {
@@ -60,11 +63,20 @@ export type CaseSignals = {
   topDocumentResultCount: number;
   topDocumentShare: number;
   topDocumentDistinctSectionCount: number;
+  dominantDocument: string | null;
+  dominantDocumentConcentration: number;
+  dominantSection: string | null;
+  dominantSectionConcentration: number;
+  supportingChunkCount: number;
+  top1Top2DocumentAgreement: boolean;
+  queryTokenCoverage: number;
+  specificTokenCoverage: number;
 };
 
 export type CaseObservation = {
   id: string;
   question: string;
+  suite: "original" | "paraphrase";
   expected: EvalExpected;
   classification: "positive" | "far_negative" | "near_negative";
   retrievedResultCount: number;
@@ -121,7 +133,7 @@ export type StrategyId =
   | "strategy4_combined_deterministic";
 
 export type StrategyDecision = {
-  strategyId: StrategyId;
+  strategyId: StrategyId | CompositeStrategyId;
   label: string;
   sufficient: boolean;
   reason: string;
@@ -145,7 +157,7 @@ export type ConfusionMetrics = {
 };
 
 export type StrategyComparison = {
-  strategyId: StrategyId;
+  strategyId: StrategyId | CompositeStrategyId;
   label: string;
   metrics: ConfusionMetrics;
 };
@@ -153,16 +165,25 @@ export type StrategyComparison = {
 export type BenchmarkArtifact = {
   generatedAt: string;
   fixturePath: string;
+  paraphraseFixturePath: string;
   retrievalLimit: number;
   openAIQueryEmbeddingRequests: number;
   summary: RetrievalSummary;
+  paraphraseSummary: RetrievalSummary;
   strategyComparison: StrategyComparison[];
+  compositeStrategyComparison: StrategyComparison[];
+  paraphraseCompositeStrategyComparison: StrategyComparison[];
   lexicalOverlapDistributions: {
     positiveMaxOverlap: DistributionSummary;
     farNegativeMaxOverlap: DistributionSummary;
     nearNegativeMaxOverlap: DistributionSummary;
   };
+  compositeSignalDistributions: CompositeSignalDistributions;
+  paraphraseCompositeSignalDistributions: CompositeSignalDistributions;
   lexicalThresholdSweep: ThresholdComparison[];
+  compositeParameterSweep: CompositeSweepResult[];
+  paraphraseCompositeParameterSweep: CompositeSweepResult[];
+  bestCompositeCandidate: StrategyComparison | null;
   observations: CaseObservation[];
   notes: string[];
 };
@@ -174,6 +195,18 @@ export type DistributionSummary = {
   p75: number | null;
   max: number | null;
 };
+
+export type CompositeSignalDistributions = Record<
+  "positive" | "farNegative" | "nearNegative",
+  {
+    maxLexicalOverlap: DistributionSummary;
+    topDocumentConcentration: DistributionSummary;
+    topSectionConcentration: DistributionSummary;
+    supportingChunkCount: DistributionSummary;
+    queryTokenCoverage: DistributionSummary;
+    specificTokenCoverage: DistributionSummary;
+  }
+>;
 
 export type ThresholdComparison = {
   threshold: number;
@@ -187,6 +220,22 @@ export type ThresholdComparison = {
   totalSpecificity: number;
   falsePositiveCaseIds: string[];
   falseNegativeCaseIds: string[];
+};
+
+export type CompositeStrategyId =
+  | "c0_lexical_only"
+  | "c1_overlap_query_coverage"
+  | "c2_overlap_supporting_chunks"
+  | "c3_overlap_document_concentration"
+  | "c4_overlap_section_concentration"
+  | "c5_overlap_specific_token_coverage"
+  | "c6_simple_three_signal";
+
+export type CompositeSweepResult = {
+  strategyId: CompositeStrategyId;
+  label: string;
+  params: Record<string, number>;
+  metrics: ConfusionMetrics;
 };
 
 type RuntimeEnv = Record<string, string | undefined>;
@@ -238,11 +287,14 @@ class CountingEmbeddingClient implements EmbeddingClient {
   }
 }
 
-export function loadFixtureCases(path: string): EvalCase[] {
-  return validateFixtureCases(JSON.parse(readFileSync(path, "utf8")));
+export function loadFixtureCases(path: string, suite: EvalCase["suite"] = "original"): EvalCase[] {
+  return validateFixtureCases(JSON.parse(readFileSync(path, "utf8")), suite);
 }
 
-export function validateFixtureCases(value: unknown): EvalCase[] {
+export function validateFixtureCases(
+  value: unknown,
+  suite: EvalCase["suite"] = "original",
+): EvalCase[] {
   if (!Array.isArray(value)) {
     throw new Error("Retrieval fixture must be a JSON array");
   }
@@ -299,6 +351,7 @@ export function validateFixtureCases(value: unknown): EvalCase[] {
     return {
       id: item.id,
       question: item.question,
+      suite,
       expected: {
         documentTitle,
         area,
@@ -321,6 +374,7 @@ export function evaluateCase(testCase: EvalCase, results: RetrievalResult[]): Ca
   return {
     id: testCase.id,
     question: testCase.question,
+    suite: testCase.suite ?? "original",
     expected: testCase.expected,
     classification: classifyCase(testCase),
     retrievedResultCount: results.length,
@@ -336,7 +390,7 @@ export function evaluateCase(testCase: EvalCase, results: RetrievalResult[]): Ca
     expectedSectionTopK: expectedSectionRank !== null,
     negativeReturnedEvidence: !testCase.expected.shouldHaveEvidence && results.length > 0,
     candidates,
-    signals: calculateSignals(candidates),
+    signals: calculateSignals(candidates, testCase.question, results),
   };
 }
 
@@ -593,6 +647,16 @@ export function summarizeLexicalOverlapDistributions(observations: CaseObservati
   };
 }
 
+export function summarizeCompositeSignalDistributions(
+  observations: CaseObservation[],
+): CompositeSignalDistributions {
+  return {
+    positive: signalDistributionFor(observations, "positive"),
+    farNegative: signalDistributionFor(observations, "far_negative"),
+    nearNegative: signalDistributionFor(observations, "near_negative"),
+  };
+}
+
 export function evaluateLexicalThresholds(
   observations: CaseObservation[],
   thresholds = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.6],
@@ -637,13 +701,190 @@ export function evaluateLexicalThresholds(
   });
 }
 
+export function evaluateCompositeStrategies(observations: CaseObservation[]): StrategyComparison[] {
+  const candidates: Array<{
+    id: CompositeStrategyId;
+    label: string;
+    sufficient: (observation: CaseObservation) => boolean;
+  }> = [
+    {
+      id: "c0_lexical_only",
+      label: "C0 lexical overlap only",
+      sufficient: (observation) => observation.signals.maxQueryOverlap >= 0.35,
+    },
+    {
+      id: "c1_overlap_query_coverage",
+      label: "C1 lexical overlap plus query token coverage",
+      sufficient: (observation) =>
+        observation.signals.maxQueryOverlap >= 0.35 &&
+        observation.signals.queryTokenCoverage >= 0.6,
+    },
+    {
+      id: "c2_overlap_supporting_chunks",
+      label: "C2 lexical overlap plus supporting chunk count",
+      sufficient: (observation) =>
+        observation.signals.maxQueryOverlap >= 0.35 &&
+        observation.signals.supportingChunkCount >= 2,
+    },
+    {
+      id: "c3_overlap_document_concentration",
+      label: "C3 lexical overlap plus dominant-document concentration",
+      sufficient: (observation) =>
+        observation.signals.maxQueryOverlap >= 0.35 &&
+        observation.signals.dominantDocumentConcentration >= 0.5,
+    },
+    {
+      id: "c4_overlap_section_concentration",
+      label: "C4 lexical overlap plus section concentration",
+      sufficient: (observation) =>
+        observation.signals.maxQueryOverlap >= 0.35 &&
+        observation.signals.dominantSectionConcentration >= 0.34,
+    },
+    {
+      id: "c5_overlap_specific_token_coverage",
+      label: "C5 lexical overlap plus specific-token coverage",
+      sufficient: (observation) =>
+        observation.signals.maxQueryOverlap >= 0.35 &&
+        observation.signals.specificTokenCoverage >= 0.5,
+    },
+    {
+      id: "c6_simple_three_signal",
+      label: "C6 lexical overlap plus support and coverage",
+      sufficient: (observation) =>
+        observation.signals.maxQueryOverlap >= 0.35 &&
+        observation.signals.supportingChunkCount >= 1 &&
+        observation.signals.specificTokenCoverage >= 0.5,
+    },
+  ];
+
+  return candidates.map((candidate) => ({
+    strategyId: candidate.id,
+    label: candidate.label,
+    metrics: calculateConfusionMetrics(
+      observations.map((observation) => ({
+        observation,
+        decision: decision(
+          candidate.id,
+          candidate.label,
+          candidate.sufficient(observation),
+          "offline composite rule",
+        ),
+      })),
+    ),
+  }));
+}
+
+export function evaluateCompositeParameterSweep(
+  observations: CaseObservation[],
+): CompositeSweepResult[] {
+  const results: CompositeSweepResult[] = [];
+  const lexicalThresholds = [0.25, 0.3, 0.35, 0.4, 0.45];
+  const coverageThresholds = [0.4, 0.5, 0.6, 0.7];
+  const concentrationThresholds = [0.34, 0.5, 0.67];
+  const supportingChunkCounts = [1, 2, 3];
+
+  for (const lexical of lexicalThresholds) {
+    results.push(
+      compositeSweepResult(
+        "c0_lexical_only",
+        "C0 lexical overlap only",
+        { lexical },
+        observations,
+        (observation) => observation.signals.maxQueryOverlap >= lexical,
+      ),
+    );
+    for (const coverage of coverageThresholds) {
+      results.push(
+        compositeSweepResult(
+          "c1_overlap_query_coverage",
+          "C1 lexical overlap plus query token coverage",
+          { lexical, coverage },
+          observations,
+          (observation) =>
+            observation.signals.maxQueryOverlap >= lexical &&
+            observation.signals.queryTokenCoverage >= coverage,
+        ),
+      );
+      results.push(
+        compositeSweepResult(
+          "c5_overlap_specific_token_coverage",
+          "C5 lexical overlap plus specific-token coverage",
+          { lexical, coverage },
+          observations,
+          (observation) =>
+            observation.signals.maxQueryOverlap >= lexical &&
+            observation.signals.specificTokenCoverage >= coverage,
+        ),
+      );
+    }
+    for (const minimumChunks of supportingChunkCounts) {
+      results.push(
+        compositeSweepResult(
+          "c2_overlap_supporting_chunks",
+          "C2 lexical overlap plus supporting chunk count",
+          { lexical, minimumChunks },
+          observations,
+          (observation) =>
+            observation.signals.maxQueryOverlap >= lexical &&
+            observation.signals.supportingChunkCount >= minimumChunks,
+        ),
+      );
+    }
+    for (const concentration of concentrationThresholds) {
+      results.push(
+        compositeSweepResult(
+          "c3_overlap_document_concentration",
+          "C3 lexical overlap plus dominant-document concentration",
+          { lexical, concentration },
+          observations,
+          (observation) =>
+            observation.signals.maxQueryOverlap >= lexical &&
+            observation.signals.dominantDocumentConcentration >= concentration,
+        ),
+      );
+      results.push(
+        compositeSweepResult(
+          "c4_overlap_section_concentration",
+          "C4 lexical overlap plus section concentration",
+          { lexical, concentration },
+          observations,
+          (observation) =>
+            observation.signals.maxQueryOverlap >= lexical &&
+            observation.signals.dominantSectionConcentration >= concentration,
+        ),
+      );
+    }
+    for (const minimumChunks of [1, 2]) {
+      for (const coverage of [0.4, 0.5, 0.6]) {
+        results.push(
+          compositeSweepResult(
+            "c6_simple_three_signal",
+            "C6 lexical overlap plus support and coverage",
+            { lexical, minimumChunks, coverage },
+            observations,
+            (observation) =>
+              observation.signals.maxQueryOverlap >= lexical &&
+              observation.signals.supportingChunkCount >= minimumChunks &&
+              observation.signals.specificTokenCoverage >= coverage,
+          ),
+        );
+      }
+    }
+  }
+
+  return results.sort(compareCompositeResults);
+}
+
 export async function runRetrievalBenchmark(options: {
   fixturePath: string;
+  paraphraseFixturePath: string;
   outputPath: string;
   env: RuntimeEnv;
   now?: () => Date;
 }): Promise<BenchmarkArtifact> {
-  const cases = loadFixtureCases(options.fixturePath);
+  const originalCases = loadFixtureCases(options.fixturePath, "original");
+  const paraphraseCases = loadFixtureCases(options.paraphraseFixturePath, "paraphrase");
+  const cases = [...originalCases, ...paraphraseCases];
   const embeddingConfig = createEmbeddingConfig({ get: (name) => options.env[name] });
   const embeddingClient = new CountingEmbeddingClient(
     new OpenAIEmbeddingClient({
@@ -667,21 +908,43 @@ export async function runRetrievalBenchmark(options: {
     });
     observations.push(evaluateCase(testCase, results));
   }
+  const originalObservations = observations.filter(
+    (observation) => observation.suite === "original",
+  );
+  const paraphraseObservations = observations.filter(
+    (observation) => observation.suite === "paraphrase",
+  );
+  const originalCompositeStrategies = evaluateCompositeStrategies(originalObservations);
+  const paraphraseCompositeStrategies = evaluateCompositeStrategies(paraphraseObservations);
 
   const artifact: BenchmarkArtifact = {
     generatedAt: (options.now?.() ?? new Date()).toISOString(),
     fixturePath: options.fixturePath,
+    paraphraseFixturePath: options.paraphraseFixturePath,
     retrievalLimit: DEFAULT_LIMIT,
     openAIQueryEmbeddingRequests: embeddingClient.requestCount,
-    summary: summarizeObservations(observations),
-    strategyComparison: evaluateStrategies(observations),
-    lexicalOverlapDistributions: summarizeLexicalOverlapDistributions(observations),
-    lexicalThresholdSweep: evaluateLexicalThresholds(observations),
+    summary: summarizeObservations(originalObservations),
+    paraphraseSummary: summarizeObservations(paraphraseObservations),
+    strategyComparison: evaluateStrategies(originalObservations),
+    compositeStrategyComparison: originalCompositeStrategies,
+    paraphraseCompositeStrategyComparison: paraphraseCompositeStrategies,
+    lexicalOverlapDistributions: summarizeLexicalOverlapDistributions(originalObservations),
+    compositeSignalDistributions: summarizeCompositeSignalDistributions(originalObservations),
+    paraphraseCompositeSignalDistributions:
+      summarizeCompositeSignalDistributions(paraphraseObservations),
+    lexicalThresholdSweep: evaluateLexicalThresholds(originalObservations),
+    compositeParameterSweep: evaluateCompositeParameterSweep(originalObservations),
+    paraphraseCompositeParameterSweep: evaluateCompositeParameterSweep(paraphraseObservations),
+    bestCompositeCandidate: chooseBestCompositeCandidate(
+      originalCompositeStrategies,
+      paraphraseCompositeStrategies,
+    ),
     observations,
     notes: [
       "No raw embeddings, secrets, JWTs, or service-role credentials are stored in this artifact.",
       "Cosine similarity is not exposed by the production retrieval RPC; strategy3 uses only an RRF rank-separation proxy.",
       "This benchmark observes production retrieval behavior but does not change ranking or sufficiency gates.",
+      "Phase 9C composite strategies are offline experiments only and are not production sufficiency gates.",
     ],
   };
 
@@ -711,13 +974,22 @@ function mapCandidate(
   };
 }
 
-function calculateSignals(candidates: CandidateObservation[]): CaseSignals {
+function calculateSignals(
+  candidates: CandidateObservation[],
+  question: string,
+  results: RetrievalResult[],
+): CaseSignals {
   const top = candidates[0];
   const second = candidates[1];
   const topDocument = top?.documentTitle ?? null;
   const topDocumentCandidates = topDocument
     ? candidates.filter((candidate) => candidate.documentTitle === topDocument)
     : [];
+  const dominantDocumentGroup = largestGroup(candidates, (candidate) => candidate.documentTitle);
+  const dominantSectionGroup = largestGroup(
+    candidates,
+    (candidate) => candidate.sectionPath ?? candidate.documentTitle,
+  );
   const distinctTopSections = new Set(
     topDocumentCandidates.map((candidate) => candidate.sectionPath ?? ""),
   );
@@ -746,6 +1018,17 @@ function calculateSignals(candidates: CandidateObservation[]): CaseSignals {
     topDocumentResultCount: topDocumentCandidates.length,
     topDocumentShare: ratio(topDocumentCandidates.length, candidates.length),
     topDocumentDistinctSectionCount: distinctTopSections.size,
+    dominantDocument: dominantDocumentGroup.key,
+    dominantDocumentConcentration: ratio(dominantDocumentGroup.items.length, candidates.length),
+    dominantSection: dominantSectionGroup.key,
+    dominantSectionConcentration: ratio(dominantSectionGroup.items.length, candidates.length),
+    supportingChunkCount: dominantDocumentGroup.items.filter(
+      (candidate) => candidate.queryOverlap >= DEFAULT_SUPPORTING_CHUNK_OVERLAP,
+    ).length,
+    top1Top2DocumentAgreement:
+      top !== undefined && second !== undefined && top.documentTitle === second.documentTitle,
+    queryTokenCoverage: tokenCoverage(question, results, "all"),
+    specificTokenCoverage: tokenCoverage(question, results, "specific"),
   };
 }
 
@@ -821,12 +1104,152 @@ function specificityFor(
   return ratio(relevant.filter(({ sufficient }) => !sufficient).length, relevant.length);
 }
 
+function compositeSweepResult(
+  strategyId: CompositeStrategyId,
+  label: string,
+  params: Record<string, number>,
+  observations: CaseObservation[],
+  sufficient: (observation: CaseObservation) => boolean,
+): CompositeSweepResult {
+  return {
+    strategyId,
+    label,
+    params,
+    metrics: calculateConfusionMetrics(
+      observations.map((observation) => ({
+        observation,
+        decision: decision(strategyId, label, sufficient(observation), JSON.stringify(params)),
+      })),
+    ),
+  };
+}
+
+function chooseBestCompositeCandidate(
+  originalStrategies: StrategyComparison[],
+  paraphraseStrategies: StrategyComparison[],
+): StrategyComparison | null {
+  const paraphrasesByStrategy = new Map(
+    paraphraseStrategies.map((strategy) => [strategy.strategyId, strategy]),
+  );
+  const viable = originalStrategies.filter((strategy) => {
+    const paraphrase = paraphrasesByStrategy.get(strategy.strategyId);
+    return (
+      strategy.metrics.recall === 1 &&
+      strategy.metrics.falseNegative === 0 &&
+      paraphrase?.metrics.recall === 1 &&
+      paraphrase.metrics.falseNegative === 0
+    );
+  });
+  if (viable.length === 0) return null;
+
+  return [...viable].sort((left, right) => {
+    const leftParaphrase = paraphrasesByStrategy.get(left.strategyId);
+    const rightParaphrase = paraphrasesByStrategy.get(right.strategyId);
+    return (
+      left.metrics.nearNegativeFalsePositiveRate - right.metrics.nearNegativeFalsePositiveRate ||
+      (leftParaphrase?.metrics.nearNegativeFalsePositiveRate ?? 1) -
+        (rightParaphrase?.metrics.nearNegativeFalsePositiveRate ?? 1) ||
+      right.metrics.specificity - left.metrics.specificity ||
+      right.metrics.precision - left.metrics.precision ||
+      left.strategyId.localeCompare(right.strategyId)
+    );
+  })[0];
+}
+
+function compareCompositeResults(left: CompositeSweepResult, right: CompositeSweepResult): number {
+  return (
+    right.metrics.recall - left.metrics.recall ||
+    1 -
+      right.metrics.nearNegativeFalsePositiveRate -
+      (1 - left.metrics.nearNegativeFalsePositiveRate) ||
+    right.metrics.specificity - left.metrics.specificity ||
+    right.metrics.precision - left.metrics.precision ||
+    left.metrics.falsePositive - right.metrics.falsePositive ||
+    left.strategyId.localeCompare(right.strategyId)
+  );
+}
+
+function signalDistributionFor(
+  observations: CaseObservation[],
+  classification: CaseObservation["classification"],
+): CompositeSignalDistributions["positive"] {
+  const matching = observations.filter(
+    (observation) => observation.classification === classification,
+  );
+  return {
+    maxLexicalOverlap: distribution(
+      matching.map((observation) => observation.signals.maxQueryOverlap),
+    ),
+    topDocumentConcentration: distribution(
+      matching.map((observation) => observation.signals.dominantDocumentConcentration),
+    ),
+    topSectionConcentration: distribution(
+      matching.map((observation) => observation.signals.dominantSectionConcentration),
+    ),
+    supportingChunkCount: distribution(
+      matching.map((observation) => observation.signals.supportingChunkCount),
+    ),
+    queryTokenCoverage: distribution(
+      matching.map((observation) => observation.signals.queryTokenCoverage),
+    ),
+    specificTokenCoverage: distribution(
+      matching.map((observation) => observation.signals.specificTokenCoverage),
+    ),
+  };
+}
+
+function largestGroup<T>(
+  items: T[],
+  keyFor: (item: T) => string,
+): { key: string | null; items: T[] } {
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const key = keyFor(item);
+    groups.set(key, [...(groups.get(key) ?? []), item]);
+  }
+
+  let best: { key: string | null; items: T[] } = { key: null, items: [] };
+  for (const [key, groupItems] of groups.entries()) {
+    if (
+      groupItems.length > best.items.length ||
+      (groupItems.length === best.items.length && key < (best.key ?? key))
+    ) {
+      best = { key, items: groupItems };
+    }
+  }
+  return best;
+}
+
+function tokenCoverage(
+  question: string,
+  results: RetrievalResult[],
+  mode: "all" | "specific",
+): number {
+  const queryTokens = mode === "all" ? tokenize(question) : specificTokens(question);
+  if (queryTokens.length === 0) return 0;
+  const evidenceTokens = new Set(
+    tokenize(
+      results
+        .map((result) =>
+          [result.document.title, result.sectionPath ?? "", result.content].join(" "),
+        )
+        .join(" "),
+    ),
+  );
+  const hits = queryTokens.filter((token) => evidenceTokens.has(token)).length;
+  return ratio(hits, queryTokens.length);
+}
+
 function queryOverlap(query: string, fields: string[]): number {
   const queryTokens = tokenize(query);
   if (queryTokens.length === 0) return 0;
   const haystack = new Set(tokenize(fields.join(" ")));
   const hits = queryTokens.filter((token) => haystack.has(token)).length;
   return round(hits / queryTokens.length);
+}
+
+function specificTokens(value: string): string[] {
+  return tokenize(value).filter((token) => token.length >= 6 || /\d/.test(token));
 }
 
 function tokenize(value: string): string[] {
@@ -850,7 +1273,7 @@ function nullableString(value: unknown): string | null {
 }
 
 function decision(
-  strategyId: StrategyId,
+  strategyId: StrategyId | CompositeStrategyId,
   label: string,
   sufficient: boolean,
   reason: string,
@@ -904,10 +1327,15 @@ function loadDotEnvLocal(path: string): RuntimeEnv {
 
 function printSummary(artifact: BenchmarkArtifact): void {
   const summary = artifact.summary;
+  const paraphrases = artifact.paraphraseSummary;
   console.log("Retrieval benchmark complete");
   console.log(`Fixture: ${artifact.fixturePath}`);
   console.log(
     `Cases: ${summary.totalCases} (${summary.positiveCases} positive, ${summary.farNegativeCases} far negative, ${summary.nearNegativeCases} near negative)`,
+  );
+  console.log(`Paraphrase fixture: ${artifact.paraphraseFixturePath}`);
+  console.log(
+    `Paraphrases: ${paraphrases.totalCases} (${paraphrases.positiveCases} positive, ${paraphrases.nearNegativeCases} near negative)`,
   );
   console.log(`Top-1 document accuracy: ${percent(summary.positiveTop1DocumentAccuracy)}`);
   console.log(`Top-3 document recall: ${percent(summary.positiveTop3DocumentRecall)}`);
@@ -932,6 +1360,21 @@ function printSummary(artifact: BenchmarkArtifact): void {
     console.log(
       `- ${strategy.strategyId}: recall=${percent(metrics.recall)}, specificity=${percent(metrics.specificity)}, falsePositive=${metrics.falsePositive}, falseNegative=${metrics.falseNegative}`,
     );
+  }
+  console.log("Composite strategy comparison:");
+  for (const strategy of artifact.compositeStrategyComparison) {
+    const metrics = strategy.metrics;
+    console.log(
+      `- ${strategy.strategyId}: recall=${percent(metrics.recall)}, specificity=${percent(metrics.specificity)}, nearFP=${percent(metrics.nearNegativeFalsePositiveRate)}, falseNegative=${metrics.falseNegative}`,
+    );
+  }
+  if (artifact.bestCompositeCandidate) {
+    const metrics = artifact.bestCompositeCandidate.metrics;
+    console.log(
+      `Best composite candidate: ${artifact.bestCompositeCandidate.strategyId} (recall=${percent(metrics.recall)}, specificity=${percent(metrics.specificity)}, nearFP=${percent(metrics.nearNegativeFalsePositiveRate)})`,
+    );
+  } else {
+    console.log("Best composite candidate: none preserving 100% original and paraphrase recall");
   }
   console.log(`Artifact: ${DEFAULT_OUTPUT_PATH}`);
 }
@@ -992,9 +1435,15 @@ const STOPWORDS = new Set([
 async function main(): Promise<void> {
   const root = fileURLToPath(new URL("..", import.meta.url));
   const fixturePath = join(root, DEFAULT_FIXTURE_PATH);
+  const paraphraseFixturePath = join(root, DEFAULT_PARAPHRASE_FIXTURE_PATH);
   const outputPath = join(root, DEFAULT_OUTPUT_PATH);
   const env = loadDotEnvLocal(join(root, ".env.local"));
-  const artifact = await runRetrievalBenchmark({ fixturePath, outputPath, env });
+  const artifact = await runRetrievalBenchmark({
+    fixturePath,
+    paraphraseFixturePath,
+    outputPath,
+    env,
+  });
   printSummary(artifact);
 }
 

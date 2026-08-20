@@ -35,6 +35,24 @@ deadlines, authorities, penalties, or policy values. The benchmark reports near-
 lexical-threshold sweeps for analysis only; production retrieval and abstention behavior are not
 changed by the benchmark.
 
+Phase 9C adds an evaluation-only paraphrase fixture in
+`fixtures/retrieval_eval_phase9c_paraphrases.json`. It contains supported paraphrases and
+near-negative paraphrases that preserve intent while varying wording. The benchmark reports these
+separately from the original fixture so the committed Phase 9B baseline remains directly comparable.
+
+Phase 9C also measures deterministic composite sufficiency signals offline:
+
+- lexical overlap
+- dominant-document concentration
+- dominant-section concentration
+- supporting chunk count
+- top-1/top-2 document agreement
+- query-token coverage
+- specific-token coverage
+
+Composite strategies and parameter sweeps are benchmark experiments only. They must not be treated as
+a production evidence gate unless a later phase explicitly implements and validates one.
+
 ## Per-case fields
 
 - `id`
