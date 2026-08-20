@@ -58,12 +58,12 @@ Prefer deterministic identifiers from `(source_document_id, logical_section_path
 2. Normalize query and create query embedding.
 3. Run semantic candidate search.
 4. Run Postgres FTS candidate search.
-5. Filter candidates by `status='published'`, access scope, and optional department metadata.
+5. Filter candidates by `status='published'`, `published_ac=true`, access scope, and optional brand/area metadata.
 6. Fuse ranks using Reciprocal Rank Fusion (RRF) or another deterministic weighted method.
 7. Return final top-K and cap total context characters/tokens.
-8. If evidence score is below threshold, skip generation or generate only the no-answer envelope.
+8. If there are zero usable retrieval results, skip generation and return the no-answer envelope.
 9. Otherwise call the generation model with strict grounding instructions.
-10. Validate returned citation identifiers against retrieved candidates.
+10. Validate returned citation labels against the request-local evidence labels. Unknown labels make the generation response unsafe.
 11. Persist query telemetry.
 
 ## Search design
@@ -105,7 +105,8 @@ The `hybrid_search` RPC is `SECURITY INVOKER` with an explicit `search_path`. It
 - Embedding call fails: preserve prior published chunks until a successful reconciliation when possible; mark sync failure.
 - Document archived: mark document inactive and remove/exclude chunks immediately.
 - No retrieval evidence: return `insufficient_evidence`.
-- Model returns unknown citation: reject/repair citation list from retrieved ids.
+- RRF fused scores are ranking diagnostics, not a hard evidence-sufficiency threshold in the MVP.
+- Model returns unknown citation: reject the generation response as unsafe.
 
 ## Model strategy
 

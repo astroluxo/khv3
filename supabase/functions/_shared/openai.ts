@@ -7,6 +7,9 @@ export const DEFAULT_EMBEDDING_DIMENSIONS = 1536;
 export type OpenAIEmbeddingErrorKind =
   "authentication" | "rate_limit" | "transient_upstream" | "malformed_response" | "configuration";
 
+export type OpenAIResponseErrorKind =
+  "authentication" | "rate_limit" | "transient_upstream" | "malformed_response";
+
 export class OpenAIEmbeddingError extends Error {
   readonly kind: OpenAIEmbeddingErrorKind;
   readonly status?: number;
@@ -18,6 +21,22 @@ export class OpenAIEmbeddingError extends Error {
   ) {
     super(message, { cause: options.cause });
     this.name = "OpenAIEmbeddingError";
+    this.kind = kind;
+    this.status = options.status;
+  }
+}
+
+export class OpenAIResponseError extends Error {
+  readonly kind: OpenAIResponseErrorKind;
+  readonly status?: number;
+
+  constructor(
+    kind: OpenAIResponseErrorKind,
+    message: string,
+    options: { status?: number; cause?: unknown } = {},
+  ) {
+    super(message, { cause: options.cause });
+    this.name = "OpenAIResponseError";
     this.kind = kind;
     this.status = options.status;
   }
@@ -142,16 +161,35 @@ export const openai = {
     async create(
       request: Record<string, unknown>,
     ): Promise<{ output_text?: string; usage?: unknown }> {
-      const response = await fetch(`${OPENAI_API_BASE_URL}/responses`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${requiredEnv("OPENAI_API_KEY")}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(request),
-      });
-      if (!response.ok) throw new Error(`OpenAI response request failed: ${response.status}`);
-      return (await response.json()) as { output_text?: string; usage?: unknown };
+      let response: Response;
+      try {
+        response = await fetch(`${OPENAI_API_BASE_URL}/responses`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${requiredEnv("OPENAI_API_KEY")}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(request),
+        });
+      } catch (error) {
+        throw new OpenAIResponseError(
+          "transient_upstream",
+          "OpenAI response request failed before a response",
+          { cause: error },
+        );
+      }
+
+      if (!response.ok) throw mapResponseHttpError(response.status);
+
+      try {
+        return (await response.json()) as { output_text?: string; usage?: unknown };
+      } catch (error) {
+        throw new OpenAIResponseError(
+          "malformed_response",
+          "OpenAI response payload was not valid JSON",
+          { cause: error },
+        );
+      }
     },
   },
 };
@@ -177,6 +215,27 @@ function mapEmbeddingHttpError(status: number): OpenAIEmbeddingError {
     });
   }
   return new OpenAIEmbeddingError("malformed_response", "OpenAI embedding request failed", {
+    status,
+  });
+}
+
+function mapResponseHttpError(status: number): OpenAIResponseError {
+  if (status === 401 || status === 403) {
+    return new OpenAIResponseError("authentication", "OpenAI response request was not authorized", {
+      status,
+    });
+  }
+  if (status === 429) {
+    return new OpenAIResponseError("rate_limit", "OpenAI response rate limit was exceeded", {
+      status,
+    });
+  }
+  if (status >= 500) {
+    return new OpenAIResponseError("transient_upstream", "OpenAI response upstream failed", {
+      status,
+    });
+  }
+  return new OpenAIResponseError("malformed_response", "OpenAI response request failed", {
     status,
   });
 }

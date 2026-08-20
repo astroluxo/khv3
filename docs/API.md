@@ -17,12 +17,17 @@ Success:
 
 ```json
 {
-  "status": "answered",
   "answer": "...",
+  "insufficient_evidence": false,
+  "sources": [
+    {
+      "title": "Cancelación de matrícula",
+      "section": "Solicitud posterior al inicio",
+      "sourceUrl": "https://www.notion.so/..."
+    }
+  ],
   "citations": [
     {
-      "chunkId": "uuid",
-      "documentId": "uuid",
       "title": "Cancelación de matrícula",
       "section": "Solicitud posterior al inicio",
       "sourceUrl": "https://www.notion.so/..."
@@ -36,12 +41,14 @@ Insufficient evidence:
 
 ```json
 {
-  "status": "insufficient_evidence",
   "answer": "No encuentro información suficiente en la base de conocimiento aprobada para responder con seguridad.",
-  "citations": [],
-  "queryId": "uuid"
+  "insufficient_evidence": true,
+  "sources": [],
+  "citations": []
 }
 ```
+
+The chat response does not expose internal chunk ids, vector scores, RRF ranks, raw embeddings, or hidden prompt details. Source URLs come from retrieved evidence, not from the model response.
 
 Errors use a stable `{ "error": { "code": "...", "message": "..." } }` envelope and must not expose secrets or raw provider errors.
 
