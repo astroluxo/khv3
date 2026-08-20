@@ -309,12 +309,28 @@ describe("Notion source adapter", () => {
 
     expect(document.sections).toEqual([
       {
-        path: "Class Limitless > Académica > Módulo 10: Matrícula > Matrícula estudiantil",
+        path: "Módulo 10: Matrícula > Matrícula estudiantil",
         text: "El estudiante debe completar la matrícula.",
+        documentTitle: "Módulo 10: Matrícula",
+        brand: "Class Limitless",
+        area: "Académica",
+        sectionTitle: "Matrícula estudiantil",
+        headingPath: "Módulo 10: Matrícula > Matrícula estudiantil",
+        sourcePageId: "page-m10",
+        sourceUrl: "https://notion.local/page-m10",
+        sourceUpdatedAt: "2026-08-19T12:00:00.000Z",
       },
       {
-        path: "Class Limitless > Académica > Módulo 10: Matrícula > Excepciones",
+        path: "Módulo 10: Matrícula > Excepciones",
         text: "Las excepciones requieren aprobación académica.",
+        documentTitle: "Módulo 10: Matrícula",
+        brand: "Class Limitless",
+        area: "Académica",
+        sectionTitle: "Excepciones",
+        headingPath: "Módulo 10: Matrícula > Excepciones",
+        sourcePageId: "page-m10",
+        sourceUrl: "https://notion.local/page-m10",
+        sourceUpdatedAt: "2026-08-19T12:00:00.000Z",
       },
     ]);
     expect(document.sections.map((section) => section.text).join("\n")).not.toContain("quiz");

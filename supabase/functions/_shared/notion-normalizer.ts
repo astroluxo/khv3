@@ -71,9 +71,18 @@ function appendBlock(
   if (skipHeadingDepth !== undefined) return;
 
   if (parsed?.text) {
+    const headingPath = buildHeadingPath(metadata, headingState);
     sections.push({
-      path: buildSectionPath(metadata, headingState),
+      path: headingPath,
       text: parsed.text,
+      documentTitle: metadata.title,
+      ...(metadata.brand ? { brand: metadata.brand } : {}),
+      ...(metadata.area ? { area: metadata.area } : {}),
+      sectionTitle: headingState.at(-1) ?? metadata.title,
+      headingPath,
+      sourcePageId: metadata.sourceId,
+      ...(metadata.url ? { sourceUrl: metadata.url } : {}),
+      ...(metadata.sourceUpdatedAt ? { sourceUpdatedAt: metadata.sourceUpdatedAt } : {}),
     });
   }
 
@@ -94,8 +103,8 @@ function nextSkipDepthForBlock(
   return normalized === "quiz" ? level : cleared;
 }
 
-function buildSectionPath(metadata: NotionMappedPage, headingState: string[]): string {
-  return [metadata.brand, metadata.area, metadata.title, ...headingState]
+function buildHeadingPath(metadata: NotionMappedPage, headingState: string[]): string {
+  return [metadata.title, ...headingState]
     .filter((part): part is string => Boolean(part))
     .join(" > ");
 }
