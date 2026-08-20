@@ -176,6 +176,16 @@ function validateGenerationResponse(
 ): GroundedGenerationResult {
   const parsed = parseModelJson(response.text);
   const answer = parsed.answer.trim();
+
+  if (parsed.insufficientEvidence) {
+    return {
+      answer: INSUFFICIENT_EVIDENCE_ANSWER,
+      citations: [],
+      insufficientEvidence: true,
+      ...(response.usage ? { usage: response.usage } : {}),
+    };
+  }
+
   const validLabels = new Set(evidence.map((item) => item.label));
   const referencedLabels = extractSourceLikeLabels(answer);
   const declaredLabels = parsed.sourceLabels;
@@ -195,21 +205,6 @@ function validateGenerationResponse(
       "malformed_response",
       `Generation referenced unknown source label(s): ${unknownLabels.join(", ")}`,
     );
-  }
-
-  if (parsed.insufficientEvidence) {
-    if (allLabels.length > 0) {
-      throw new GenerationError(
-        "malformed_response",
-        "Insufficient-evidence response must not include citations",
-      );
-    }
-    return {
-      answer: answer || INSUFFICIENT_EVIDENCE_ANSWER,
-      citations: [],
-      insufficientEvidence: true,
-      ...(response.usage ? { usage: response.usage } : {}),
-    };
   }
 
   if (!answer) {

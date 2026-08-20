@@ -245,7 +245,7 @@ describe("grounded answer generation", () => {
     ).rejects.toMatchObject({ kind: "malformed_response" });
   });
 
-  it("returns structured insufficient evidence when the model refuses", async () => {
+  it("returns canonical insufficient evidence when the model declares it without labels", async () => {
     const result = await generateGroundedAnswer({
       question: "¿Qué dice una fuente ausente?",
       evidence: [retrieval()],
@@ -264,20 +264,64 @@ describe("grounded answer generation", () => {
     });
   });
 
-  it("rejects contradictory insufficient-evidence responses with citations", async () => {
-    await expect(
-      generateGroundedAnswer({
-        question: "¿Qué dice una fuente ausente?",
-        evidence: [retrieval()],
-        client: new MockGenerationClient(
-          jsonResponse({
-            answer: `${INSUFFICIENT_EVIDENCE_ANSWER} [S1]`,
-            sourceLabels: ["S1"],
-            insufficientEvidence: true,
-          }),
-        ),
-      }),
-    ).rejects.toMatchObject({ kind: "malformed_response" });
+  it("discards valid supplied labels when the model declares insufficient evidence", async () => {
+    const result = await generateGroundedAnswer({
+      question: "¿Qué dice una fuente ausente?",
+      evidence: [retrieval()],
+      client: new MockGenerationClient(
+        jsonResponse({
+          answer: `${INSUFFICIENT_EVIDENCE_ANSWER} [S1]`,
+          sourceLabels: ["S1"],
+          insufficientEvidence: true,
+        }),
+      ),
+    });
+
+    expect(result).toEqual({
+      answer: INSUFFICIENT_EVIDENCE_ANSWER,
+      citations: [],
+      insufficientEvidence: true,
+    });
+  });
+
+  it("discards invented labels when the model declares insufficient evidence", async () => {
+    const result = await generateGroundedAnswer({
+      question: "¿Qué dice una fuente ausente?",
+      evidence: [retrieval()],
+      client: new MockGenerationClient(
+        jsonResponse({
+          answer: `${INSUFFICIENT_EVIDENCE_ANSWER} [S99]`,
+          sourceLabels: ["S99"],
+          insufficientEvidence: true,
+        }),
+      ),
+    });
+
+    expect(result).toEqual({
+      answer: INSUFFICIENT_EVIDENCE_ANSWER,
+      citations: [],
+      insufficientEvidence: true,
+    });
+  });
+
+  it("does not trust substantive model text when the model declares insufficient evidence", async () => {
+    const result = await generateGroundedAnswer({
+      question: "¿Qué dice una fuente ausente?",
+      evidence: [retrieval()],
+      client: new MockGenerationClient(
+        jsonResponse({
+          answer: "La empresa tiene una política inventada de vacaciones. [S1]",
+          sourceLabels: ["S1"],
+          insufficientEvidence: true,
+        }),
+      ),
+    });
+
+    expect(result).toEqual({
+      answer: INSUFFICIENT_EVIDENCE_ANSWER,
+      citations: [],
+      insufficientEvidence: true,
+    });
   });
 
   it("surfaces conflicting evidence conservatively when cited", async () => {
@@ -693,6 +737,44 @@ describe("grounded chat pipeline", () => {
       retrievedChunkIds: [],
       retrievedDocumentIds: [],
     });
+  });
+
+  it("logs canonical insufficient evidence after retrieved evidence is deemed insufficient", async () => {
+    const logger = new MockLogger();
+    const result = await runGroundedChat({
+      userId: "user-1",
+      question: "¿Cuál es una política interna no recuperada?",
+      supabase: mockSupabase,
+      allowedAccessScopes: ["default"],
+      logger,
+      retrieve: async () => [retrieval()],
+      generationClient: new MockGenerationClient(
+        jsonResponse({
+          answer: "No hay evidencia suficiente. [S1]",
+          sourceLabels: ["S1"],
+          insufficientEvidence: true,
+        }),
+      ),
+    });
+
+    expect(result).toEqual({
+      answer: INSUFFICIENT_EVIDENCE_ANSWER,
+      sources: [],
+      citations: [],
+      insufficient_evidence: true,
+    });
+    expect(logger.entries[0]).toMatchObject({
+      userId: "user-1",
+      question: "¿Cuál es una política interna no recuperada?",
+      answer: INSUFFICIENT_EVIDENCE_ANSWER,
+      insufficientEvidence: true,
+      retrievedChunkIds: ["chunk-secret-1"],
+      retrievedDocumentIds: ["00000000-0000-0000-0000-000000000001"],
+    });
+    expect(JSON.stringify(logger.entries[0])).not.toContain("SOURCES");
+    expect(JSON.stringify(logger.entries[0])).not.toContain("embedding");
+    expect(JSON.stringify(logger.entries[0])).not.toContain("production_metadata");
+    expect(JSON.stringify(logger.entries[0])).not.toContain("editorial_metadata");
   });
 
   it("does not treat low fused RRF score as a hard evidence threshold", async () => {
