@@ -278,5 +278,85 @@
       "sectionContains": null,
       "shouldHaveEvidence": false
     }
+  },
+  {
+    "id": "phase9a-negative-benefits-001",
+    "question": "Que beneficios extralegales ofrece la empresa a sus empleados?",
+    "expected": {
+      "documentTitle": null,
+      "area": null,
+      "sectionContains": null,
+      "shouldHaveEvidence": false
+    }
+  },
+  {
+    "id": "phase9a-negative-recruiting-001",
+    "question": "Como se aprueba la contratacion de un nuevo desarrollador?",
+    "expected": {
+      "documentTitle": null,
+      "area": null,
+      "sectionContains": null,
+      "shouldHaveEvidence": false
+    }
+  },
+  {
+    "id": "phase9a-negative-procurement-001",
+    "question": "Cual es el flujo para comprar equipos de oficina y aprobar proveedores?",
+    "expected": {
+      "documentTitle": null,
+      "area": null,
+      "sectionContains": null,
+      "shouldHaveEvidence": false
+    }
+  },
+  {
+    "id": "phase9a-negative-crm-sales-001",
+    "question": "Como se registra una oportunidad comercial en el CRM de ventas?",
+    "expected": {
+      "documentTitle": null,
+      "area": null,
+      "sectionContains": null,
+      "shouldHaveEvidence": false
+    }
+  },
+  {
+    "id": "phase9a-negative-marketing-001",
+    "question": "Cual es el proceso para aprobar campanas de marketing digital?",
+    "expected": {
+      "documentTitle": null,
+      "area": null,
+      "sectionContains": null,
+      "shouldHaveEvidence": false
+    }
+  },
+  {
+    "id": "phase9a-negative-legal-001",
+    "question": "Como se revisan contratos legales con clientes empresariales?",
+    "expected": {
+      "documentTitle": null,
+      "area": null,
+      "sectionContains": null,
+      "shouldHaveEvidence": false
+    }
+  },
+  {
+    "id": "phase9a-negative-it-support-001",
+    "question": "Como se configura la VPN corporativa para trabajo remoto?",
+    "expected": {
+      "documentTitle": null,
+      "area": null,
+      "sectionContains": null,
+      "shouldHaveEvidence": false
+    }
+  },
+  {
+    "id": "phase9a-negative-facilities-001",
+    "question": "Como se reserva una sala de reuniones o un puesto de parqueadero?",
+    "expected": {
+      "documentTitle": null,
+      "area": null,
+      "sectionContains": null,
+      "shouldHaveEvidence": false
+    }
   }
 ]

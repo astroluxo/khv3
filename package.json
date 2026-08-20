@@ -8,6 +8,7 @@
     "lint": "pnpm --filter web lint",
     "typecheck": "pnpm --filter web typecheck",
     "test": "vitest run",
+    "eval:retrieval": "node --experimental-strip-types scripts/retrieval-eval.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

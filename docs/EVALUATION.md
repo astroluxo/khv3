@@ -18,6 +18,17 @@ Start with at least 30 questions split across:
 
 Store cases in `fixtures/eval_cases.json`.
 
+The real Phase 8/9 retrieval baseline lives in `fixtures/retrieval_eval_phase8.json`.
+Run it against the existing local Supabase corpus with:
+
+```bash
+pnpm eval:retrieval
+```
+
+The command uses real OpenAI query embeddings and the production retrieval service against local
+Supabase. It writes the safe machine-readable result artifact to
+`.supabase/retrieval-eval-phase9.json`, which is intentionally ignored by Git.
+
 ## Per-case fields
 
 - `id`
