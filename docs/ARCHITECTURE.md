@@ -79,15 +79,24 @@ Use the same `chunks` table for:
 
 Initial index strategy:
 
-- HNSW vector index when corpus size justifies it.
-- GIN index on FTS column.
+- HNSW vector index on `chunks.embedding` using cosine distance for semantic retrieval.
+- GIN index on the `simple` FTS column. The MVP keeps `simple` rather than switching
+  wholesale to Spanish stemming so exact internal codes, product names, and mixed Spanish/English
+  identifiers remain searchable. Spanish stemming can be evaluated later as an additional lexical
+  signal instead of replacing exact-friendly lookup.
 - B-tree indexes on document/status/department fields.
 
-For a tiny corpus, exact vector scan can be acceptable initially; keep the SQL compatible with adding HNSW without changing application contracts.
+For a tiny corpus, exact vector scan can be acceptable initially, but Phase 5 adds the HNSW index
+because retrieval is now a first-class backend path and the SQL remains compatible with either exact
+or indexed vector execution.
 
 ## Permissions
 
 The MVP can begin with one department, but the schema must not assume every future user can see every document. `documents.access_scope` and membership mapping provide the extension point. RLS is the production gate.
+
+`Brand` and `Área` are knowledge metadata only. They may filter retrieval when supplied explicitly, but they never grant access. `documents.access_scope` is the authorization field.
+
+The `hybrid_search` RPC is `SECURITY INVOKER` with an explicit `search_path`. It is executable by `authenticated` and `service_role`, not by `anon` or `public`. User-context calls still rely on RLS. Trusted backend/service-role calls must pass explicit `allowed_access_scopes` for scoped content. `allowed_access_scopes = NULL` is reserved for default-scope content only, an empty array means no scoped access, and a non-empty array is an explicit allowlist.
 
 ## Failure modes
 
