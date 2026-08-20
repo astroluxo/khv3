@@ -45,9 +45,7 @@ function appendBlocks(
   let skipHeadingDepth = initialSkipHeadingDepth;
 
   for (const block of blocks) {
-    const nextSkipDepth = nextSkipDepthForBlock(block, skipHeadingDepth);
-    appendBlock(block, metadata, headingState, sections, nextSkipDepth);
-    skipHeadingDepth = nextSkipDepth;
+    skipHeadingDepth = appendBlock(block, metadata, headingState, sections, skipHeadingDepth);
   }
 }
 
@@ -57,18 +55,25 @@ function appendBlock(
   headingState: string[],
   sections: NormalizedSection[],
   skipHeadingDepth: number | undefined,
-): void {
+): number | undefined {
   const parsed = blockText(block);
   const headingLevel = headingBlockLevel(block.type);
 
   if (headingLevel) {
     const heading = parsed?.text.trim() ?? "";
+
+    if (skipHeadingDepth !== undefined) {
+      if (headingLevel > skipHeadingDepth) return skipHeadingDepth;
+      skipHeadingDepth = undefined;
+    }
+
     headingState.splice(headingLevel - 1);
+    if (isQuizHeading(heading)) return headingLevel;
     if (heading) headingState[headingLevel - 1] = heading;
-    return;
+    return undefined;
   }
 
-  if (skipHeadingDepth !== undefined) return;
+  if (skipHeadingDepth !== undefined) return skipHeadingDepth;
 
   if (parsed?.text) {
     const headingPath = buildHeadingPath(metadata, headingState);
@@ -89,18 +94,8 @@ function appendBlock(
   if (block.children.length > 0) {
     appendBlocks(block.children, metadata, headingState, sections, skipHeadingDepth);
   }
-}
 
-function nextSkipDepthForBlock(
-  block: NotionBlockWithChildren,
-  current: number | undefined,
-): number | undefined {
-  const level = headingBlockLevel(block.type);
-  if (!level) return current;
-  const parsed = blockText(block);
-  const normalized = normalizeHeading(parsed?.text ?? "");
-  const cleared = current !== undefined && level <= current ? undefined : current;
-  return normalized === "quiz" ? level : cleared;
+  return skipHeadingDepth;
 }
 
 function buildHeadingPath(metadata: NotionMappedPage, headingState: string[]): string {
@@ -148,8 +143,14 @@ function headingBlockLevel(type: string | undefined): number | undefined {
   return undefined;
 }
 
-function normalizeHeading(value: string): string {
-  return value.trim().toLowerCase();
+function isQuizHeading(value: string): boolean {
+  const tokens =
+    value
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .match(/[a-z0-9]+/g) ?? [];
+  return tokens.includes("quiz");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

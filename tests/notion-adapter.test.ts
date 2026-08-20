@@ -1,15 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { fetchNotionPageDocument } from "../supabase/functions/_shared/notion-normalizer.ts";
+import {
+  fetchNotionPageDocument,
+  normalizeNotionPageBody,
+} from "../supabase/functions/_shared/notion-normalizer.ts";
 import {
   mapNotionPageToDocumentMetadata,
   NotionApiClient,
   NotionSourceError,
   queryContenidosSource,
   type NotionBlock,
+  type NotionBlockWithChildren,
   type NotionClient,
   type NotionDataSourceQuery,
   type NotionListResponse,
   type NotionPage,
+  type NotionRawPageDocument,
 } from "../supabase/functions/_shared/notion.ts";
 
 const DATA_SOURCE_ID = "test-data-source-id";
@@ -126,6 +131,44 @@ function heading(
       rich_text: [richText(text)],
     },
   };
+}
+
+function divider(id: string): NotionBlock {
+  return {
+    object: "block",
+    id,
+    type: "divider",
+    divider: {},
+  };
+}
+
+function bookmark(id: string): NotionBlock {
+  return {
+    object: "block",
+    id,
+    type: "bookmark",
+    bookmark: { url: "https://quiz.local" },
+  };
+}
+
+function withChildren(
+  block: NotionBlock,
+  children: NotionBlockWithChildren[] = [],
+): NotionBlockWithChildren {
+  return { ...block, children } as NotionBlockWithChildren;
+}
+
+function rawPageWithBlocks(blocks: NotionBlock[]): NotionRawPageDocument {
+  return {
+    ...mapNotionPageToDocumentMetadata(modulePages[0]),
+    bodyBlocks: blocks.map((block) => withChildren(block)),
+  };
+}
+
+function normalizedText(blocks: NotionBlock[]): string {
+  return normalizeNotionPageBody(rawPageWithBlocks(blocks))
+    .map((section) => section.text)
+    .join("\n");
 }
 
 class MockNotionClient implements NotionClient {
@@ -341,6 +384,93 @@ describe("Notion source adapter", () => {
       { blockId: "page-m10", startCursor: undefined },
       { blockId: "page-m10", startCursor: "1" },
     ]);
+  });
+
+  it("excludes the trailing Quiz section pattern found on Módulo 10: Matrícula", () => {
+    const content = normalizedText([
+      heading("heading-main", "heading_1", "Matrícula estudiantil"),
+      paragraph("body-before-1", "El estudiante debe completar la matrícula."),
+      paragraph("body-before-2", "El estado cambia cuando se registra el pago."),
+      divider("divider-before-quiz"),
+      heading("heading-quiz", "heading_1", "Quiz"),
+      bookmark("bookmark-quiz"),
+      paragraph("question-1", "1. ¿Cuál es el estado después del pago?"),
+      paragraph("answer-1", "Prematrícula."),
+      paragraph("answer-2", "No matriculado."),
+      paragraph("answer-3", "Matriculado."),
+    ]);
+
+    expect(content).toContain("El estudiante debe completar la matrícula.");
+    expect(content).toContain("El estado cambia cuando se registra el pago.");
+    expect(content).not.toContain("¿Cuál es el estado después del pago?");
+    expect(content).not.toContain("Prematrícula.");
+    expect(content).not.toContain("No matriculado.");
+    expect(content).not.toContain("Matriculado.");
+  });
+
+  it("excludes Quiz heading_1 sections until the next heading_1", () => {
+    const content = normalizedText([
+      heading("heading-before", "heading_1", "Proceso"),
+      paragraph("body-before", "Contenido legítimo previo."),
+      heading("heading-quiz", "heading_1", "Quiz"),
+      paragraph("body-quiz", "Pregunta y respuesta que no deben indexarse."),
+      heading("heading-after", "heading_1", "Excepciones"),
+      paragraph("body-after", "Contenido legítimo posterior."),
+    ]);
+
+    expect(content).toContain("Contenido legítimo previo.");
+    expect(content).toContain("Contenido legítimo posterior.");
+    expect(content).not.toContain("Pregunta y respuesta que no deben indexarse.");
+  });
+
+  it("excludes Quiz heading_2 sections until the next heading_1 or heading_2", () => {
+    const content = normalizedText([
+      heading("heading-parent", "heading_1", "Matrícula estudiantil"),
+      paragraph("body-parent", "Contenido legítimo de la sección padre."),
+      heading("heading-quiz", "heading_2", "Quiz"),
+      paragraph("body-quiz", "Pregunta bajo heading_2 que debe excluirse."),
+      heading("heading-after", "heading_2", "Inscripciones"),
+      paragraph("body-after", "Contenido legítimo de la sección hermana."),
+    ]);
+
+    expect(content).toContain("Contenido legítimo de la sección padre.");
+    expect(content).toContain("Contenido legítimo de la sección hermana.");
+    expect(content).not.toContain("Pregunta bajo heading_2 que debe excluirse.");
+  });
+
+  it("excludes a trailing Quiz section at the end of a page", () => {
+    const content = normalizedText([
+      heading("heading-main", "heading_1", "Proceso"),
+      paragraph("body-main", "Contenido legítimo antes del cierre."),
+      heading("heading-quiz", "heading_2", "Quiz"),
+      paragraph("body-quiz", "Pregunta final que no debe llegar al conocimiento."),
+    ]);
+
+    expect(content).toContain("Contenido legítimo antes del cierre.");
+    expect(content).not.toContain("Pregunta final que no debe llegar al conocimiento.");
+  });
+
+  it("preserves pages without Quiz sections", () => {
+    const content = normalizedText([
+      heading("heading-main", "heading_1", "Proceso"),
+      paragraph("body-main", "Contenido legítimo completo."),
+      heading("heading-after", "heading_2", "Detalle"),
+      paragraph("body-after", "Contenido legítimo detallado."),
+    ]);
+
+    expect(content).toContain("Contenido legítimo completo.");
+    expect(content).toContain("Contenido legítimo detallado.");
+  });
+
+  it("does not suppress normal body text that merely mentions the word quiz", () => {
+    const content = normalizedText([
+      heading("heading-main", "heading_1", "Proceso"),
+      paragraph("body-main", "El instructor puede mencionar la palabra quiz sin crear sección."),
+      paragraph("body-after", "Este contenido posterior también se conserva."),
+    ]);
+
+    expect(content).toContain("mencionar la palabra quiz");
+    expect(content).toContain("Este contenido posterior también se conserva.");
   });
 
   it("queries the Contenidos data source with pagination", async () => {
