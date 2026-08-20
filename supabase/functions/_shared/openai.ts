@@ -8,7 +8,12 @@ export type OpenAIEmbeddingErrorKind =
   "authentication" | "rate_limit" | "transient_upstream" | "malformed_response" | "configuration";
 
 export type OpenAIResponseErrorKind =
-  "authentication" | "rate_limit" | "transient_upstream" | "malformed_response";
+  | "authentication"
+  | "rate_limit"
+  | "transient_upstream"
+  | "malformed_response"
+  | "refusal"
+  | "incomplete";
 
 export class OpenAIEmbeddingError extends Error {
   readonly kind: OpenAIEmbeddingErrorKind;
@@ -44,6 +49,25 @@ export class OpenAIResponseError extends Error {
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 type EnvReader = { get(name: string): string | undefined };
+
+export type JsonSchemaResponseFormat = {
+  type: "json_schema";
+  name: string;
+  description?: string;
+  strict: true;
+  schema: Record<string, unknown>;
+};
+
+export type OpenAIResponseRequest = Record<string, unknown> & {
+  text?: {
+    format: JsonSchemaResponseFormat;
+  };
+};
+
+export type OpenAIResponsePayload = {
+  output_text?: string;
+  usage?: unknown;
+};
 
 export type EmbeddingClient = {
   readonly dimensions: number;
@@ -158,9 +182,7 @@ export async function embedText(
 
 export const openai = {
   responses: {
-    async create(
-      request: Record<string, unknown>,
-    ): Promise<{ output_text?: string; usage?: unknown }> {
+    async create(request: OpenAIResponseRequest): Promise<OpenAIResponsePayload> {
       let response: Response;
       try {
         response = await fetch(`${OPENAI_API_BASE_URL}/responses`, {
@@ -181,8 +203,9 @@ export const openai = {
 
       if (!response.ok) throw mapResponseHttpError(response.status);
 
+      let payload: unknown;
       try {
-        return (await response.json()) as { output_text?: string; usage?: unknown };
+        payload = await response.json();
       } catch (error) {
         throw new OpenAIResponseError(
           "malformed_response",
@@ -190,6 +213,8 @@ export const openai = {
           { cause: error },
         );
       }
+
+      return parseOpenAIResponsePayload(payload);
     },
   },
 };
@@ -295,6 +320,72 @@ function parseEmbeddingDimensions(value: string | undefined): number {
     );
   }
   return parsed;
+}
+
+function parseOpenAIResponsePayload(payload: unknown): OpenAIResponsePayload {
+  if (!isRecord(payload)) {
+    throw new OpenAIResponseError("malformed_response", "OpenAI response payload is malformed");
+  }
+
+  if (payload.status === "incomplete") {
+    throw new OpenAIResponseError("incomplete", "OpenAI response was incomplete");
+  }
+  if (payload.status === "failed" || payload.status === "cancelled") {
+    throw new OpenAIResponseError(
+      "transient_upstream",
+      `OpenAI response ended with status ${String(payload.status)}`,
+    );
+  }
+  if (payload.error !== undefined && payload.error !== null) {
+    throw new OpenAIResponseError("transient_upstream", "OpenAI response returned an error");
+  }
+  if (containsRefusal(payload.output)) {
+    throw new OpenAIResponseError("refusal", "OpenAI response contained a refusal");
+  }
+
+  const outputText = parseOutputText(payload);
+  if (!outputText) {
+    throw new OpenAIResponseError(
+      "malformed_response",
+      "OpenAI response did not include output text",
+    );
+  }
+
+  return {
+    output_text: outputText,
+    ...(payload.usage !== undefined ? { usage: payload.usage } : {}),
+  };
+}
+
+function containsRefusal(output: unknown): boolean {
+  if (!Array.isArray(output)) return false;
+  return output.some((item) => {
+    if (!isRecord(item)) return false;
+    if (typeof item.refusal === "string") return true;
+    if (!Array.isArray(item.content)) return false;
+    return item.content.some(
+      (content) =>
+        isRecord(content) && (content.type === "refusal" || typeof content.refusal === "string"),
+    );
+  });
+}
+
+function parseOutputText(payload: Record<string, unknown>): string | undefined {
+  if (typeof payload.output_text === "string") return payload.output_text;
+  if (!Array.isArray(payload.output)) return undefined;
+
+  const parts: string[] = [];
+  for (const item of payload.output) {
+    if (!isRecord(item) || !Array.isArray(item.content)) continue;
+    for (const content of item.content) {
+      if (!isRecord(content)) continue;
+      if (content.type === "output_text" && typeof content.text === "string") {
+        parts.push(content.text);
+      }
+    }
+  }
+
+  return parts.length > 0 ? parts.join("") : undefined;
 }
 
 function runtimeEnv(): EnvReader {

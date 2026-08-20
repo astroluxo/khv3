@@ -62,8 +62,8 @@ Prefer deterministic identifiers from `(source_document_id, logical_section_path
 6. Fuse ranks using Reciprocal Rank Fusion (RRF) or another deterministic weighted method.
 7. Return final top-K and cap total context characters/tokens.
 8. If there are zero usable retrieval results, skip generation and return the no-answer envelope.
-9. Otherwise call the generation model with strict grounding instructions.
-10. Validate returned citation labels against the request-local evidence labels. Unknown labels make the generation response unsafe.
+9. Otherwise call the generation model with strict grounding instructions and Responses API Structured Outputs for the grounded-answer JSON contract.
+10. Validate returned JSON and citation labels against the request-local evidence labels. Unknown labels, uncited substantive answers, refusals, incomplete outputs, and malformed schema responses make the generation response unsafe.
 11. Persist query telemetry.
 
 ## Search design

@@ -1,4 +1,4 @@
-import { openai, OpenAIResponseError } from "./openai.ts";
+import { openai, OpenAIResponseError, type JsonSchemaResponseFormat } from "./openai.ts";
 import type { RetrievalResult } from "./retrieval.ts";
 
 export const INSUFFICIENT_EVIDENCE_ANSWER =
@@ -29,6 +29,7 @@ export type GenerationClientRequest = {
   model: string;
   instructions: string;
   input: string;
+  responseFormat: JsonSchemaResponseFormat;
 };
 
 export type GenerationClientResponse = {
@@ -61,6 +62,9 @@ export class OpenAIGenerationClient implements GenerationClient {
         reasoning: { effort: "low" },
         instructions: request.instructions,
         input: request.input,
+        text: {
+          format: request.responseFormat,
+        },
       });
       return {
         text: response.output_text ?? "",
@@ -71,6 +75,32 @@ export class OpenAIGenerationClient implements GenerationClient {
     }
   }
 }
+
+export const GROUNDED_ANSWER_RESPONSE_FORMAT: JsonSchemaResponseFormat = {
+  type: "json_schema",
+  name: "grounded_answer",
+  description: "A grounded knowledge-base answer with request-local source labels.",
+  strict: true,
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      answer: {
+        type: "string",
+      },
+      sourceLabels: {
+        type: "array",
+        items: {
+          type: "string",
+        },
+      },
+      insufficientEvidence: {
+        type: "boolean",
+      },
+    },
+    required: ["answer", "sourceLabels", "insufficientEvidence"],
+  },
+};
 
 export async function generateGroundedAnswer(input: {
   question: string;
@@ -98,6 +128,7 @@ export async function generateGroundedAnswer(input: {
     model: input.model ?? defaultChatModel(),
     instructions: groundingInstructions(),
     input: buildGroundedInput(question, labeledEvidence),
+    responseFormat: GROUNDED_ANSWER_RESPONSE_FORMAT,
   });
 
   return validateGenerationResponse(response, labeledEvidence);
@@ -216,6 +247,14 @@ function parseModelJson(text: string): {
   if (!isRecord(value) || typeof value.answer !== "string") {
     throw new GenerationError("malformed_response", "Generation JSON is missing answer");
   }
+  const keys = Object.keys(value).sort();
+  const expectedKeys = ["answer", "insufficientEvidence", "sourceLabels"];
+  if (
+    keys.length !== expectedKeys.length ||
+    keys.some((key, index) => key !== expectedKeys[index])
+  ) {
+    throw new GenerationError("malformed_response", "Generation JSON contains unexpected fields");
+  }
   if (typeof value.insufficientEvidence !== "boolean") {
     throw new GenerationError(
       "malformed_response",
@@ -292,6 +331,13 @@ function mapGenerationError(error: unknown): GenerationError {
       return new GenerationError("rate_limit", error.message, { cause: error });
     if (error.kind === "transient_upstream") {
       return new GenerationError("transient_upstream", error.message, { cause: error });
+    }
+    if (
+      error.kind === "malformed_response" ||
+      error.kind === "refusal" ||
+      error.kind === "incomplete"
+    ) {
+      return new GenerationError("malformed_response", error.message, { cause: error });
     }
     return new GenerationError("generation_failed", error.message, { cause: error });
   }

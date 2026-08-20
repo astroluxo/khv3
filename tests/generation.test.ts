@@ -1,9 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildEvidenceContext,
   generateGroundedAnswer,
   GenerationError,
+  GROUNDED_ANSWER_RESPONSE_FORMAT,
   INSUFFICIENT_EVIDENCE_ANSWER,
+  OpenAIGenerationClient,
   type GenerationClient,
   type GenerationClientRequest,
   type GenerationClientResponse,
@@ -104,6 +106,10 @@ function jsonResponse(value: {
 }
 
 describe("grounded answer generation", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("skips generation when there are zero retrieval results", async () => {
     const result = await generateGroundedAnswer({
       question: "¿Cuál es el proceso?",
@@ -119,10 +125,11 @@ describe("grounded answer generation", () => {
   });
 
   it("returns a grounded answer with one valid citation", async () => {
+    const client = new MockGenerationClient();
     const result = await generateGroundedAnswer({
       question: "¿Cuándo se completa la matrícula?",
       evidence: [retrieval()],
-      client: new MockGenerationClient(),
+      client,
       model: "test-model",
     });
 
@@ -136,6 +143,17 @@ describe("grounded answer generation", () => {
       },
     ]);
     expect(result.insufficientEvidence).toBe(false);
+    expect(client.requests[0].responseFormat).toEqual(GROUNDED_ANSWER_RESPONSE_FORMAT);
+    expect(client.requests[0].responseFormat).toMatchObject({
+      type: "json_schema",
+      name: "grounded_answer",
+      strict: true,
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["answer", "sourceLabels", "insufficientEvidence"],
+      },
+    });
   });
 
   it("supports answers using multiple citations", async () => {
@@ -304,24 +322,39 @@ describe("grounded answer generation", () => {
     expect(input).not.toContain("default");
   });
 
+  it("rejects additional model response properties", async () => {
+    await expect(
+      generateGroundedAnswer({
+        question: "¿Qué hacer?",
+        evidence: [retrieval()],
+        client: new MockGenerationClient({
+          text: JSON.stringify({
+            answer: "Debe completarse antes del inicio. [S1]",
+            sourceLabels: ["S1"],
+            insufficientEvidence: false,
+            sourceUrl: "https://model-invented.local",
+          }),
+        }),
+      }),
+    ).rejects.toMatchObject({ kind: "malformed_response" });
+  });
+
   it("uses source URLs from retrieval data, not model output", async () => {
     const result = await generateGroundedAnswer({
       question: "¿Qué hacer?",
       evidence: [retrieval()],
-      client: new MockGenerationClient({
-        text: JSON.stringify({
+      client: new MockGenerationClient(
+        jsonResponse({
           answer: "Debe completarse antes del inicio. [S1]",
           sourceLabels: ["S1"],
-          insufficientEvidence: false,
-          sourceUrl: "https://model-invented.local",
         }),
-      }),
+      ),
     });
 
     expect(result.citations[0].sourceUrl).toBe("https://notion.local/page-1");
   });
 
-  it("rejects responses with missing or wrongly typed sourceLabels", async () => {
+  it("rejects responses with missing or wrongly typed fields", async () => {
     await expect(
       generateGroundedAnswer({
         question: "¿Qué hacer?",
@@ -341,11 +374,174 @@ describe("grounded answer generation", () => {
         evidence: [retrieval()],
         client: new MockGenerationClient({
           text: JSON.stringify({
+            answer: 42,
+            sourceLabels: ["S1"],
+            insufficientEvidence: false,
+          }),
+        }),
+      }),
+    ).rejects.toMatchObject({ kind: "malformed_response" });
+
+    await expect(
+      generateGroundedAnswer({
+        question: "¿Qué hacer?",
+        evidence: [retrieval()],
+        client: new MockGenerationClient({
+          text: JSON.stringify({
+            answer: "Debe completarse antes del inicio. [S1]",
+            sourceLabels: ["S1"],
+            insufficientEvidence: "false",
+          }),
+        }),
+      }),
+    ).rejects.toMatchObject({ kind: "malformed_response" });
+
+    await expect(
+      generateGroundedAnswer({
+        question: "¿Qué hacer?",
+        evidence: [retrieval()],
+        client: new MockGenerationClient({
+          text: JSON.stringify({
             answer: "Debe completarse antes del inicio. [S1]",
             sourceLabels: ["S1", 99],
             insufficientEvidence: false,
           }),
         }),
+      }),
+    ).rejects.toMatchObject({ kind: "malformed_response" });
+  });
+
+  it("rejects Responses API refusal and incomplete states safely", async () => {
+    stubDenoEnv();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          status: "completed",
+          output: [{ content: [{ type: "refusal", refusal: "No puedo ayudar." }] }],
+        }),
+      ),
+    );
+
+    await expect(
+      generateGroundedAnswer({
+        question: "¿Qué hacer?",
+        evidence: [retrieval()],
+        client: new OpenAIGenerationClient(),
+        model: "test-model",
+      }),
+    ).rejects.toMatchObject({ kind: "malformed_response" });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          status: "incomplete",
+          incomplete_details: { reason: "max_output_tokens" },
+        }),
+      ),
+    );
+
+    await expect(
+      generateGroundedAnswer({
+        question: "¿Qué hacer?",
+        evidence: [retrieval()],
+        client: new OpenAIGenerationClient(),
+        model: "test-model",
+      }),
+    ).rejects.toMatchObject({ kind: "malformed_response" });
+  });
+
+  it("sends strict Structured Outputs schema to the Responses API", async () => {
+    stubDenoEnv();
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        status: "completed",
+        output_text: JSON.stringify({
+          answer: "Debe completarse antes del inicio. [S1]",
+          sourceLabels: ["S1"],
+          insufficientEvidence: false,
+        }),
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await generateGroundedAnswer({
+      question: "¿Qué hacer?",
+      evidence: [retrieval()],
+      client: new OpenAIGenerationClient(),
+      model: "test-model",
+    });
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body.text.format).toEqual(GROUNDED_ANSWER_RESPONSE_FORMAT);
+    expect(body.text.format.schema).toMatchObject({
+      type: "object",
+      additionalProperties: false,
+      required: ["answer", "sourceLabels", "insufficientEvidence"],
+      properties: {
+        answer: { type: "string" },
+        sourceLabels: { type: "array", items: { type: "string" } },
+        insufficientEvidence: { type: "boolean" },
+      },
+    });
+  });
+
+  it("parses structured text from raw Responses API output content", async () => {
+    stubDenoEnv();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          status: "completed",
+          output: [
+            {
+              type: "message",
+              content: [
+                {
+                  type: "output_text",
+                  text: JSON.stringify({
+                    answer: "Debe completarse antes del inicio. [S1]",
+                    sourceLabels: ["S1"],
+                    insufficientEvidence: false,
+                  }),
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    );
+
+    const result = await generateGroundedAnswer({
+      question: "¿Qué hacer?",
+      evidence: [retrieval()],
+      client: new OpenAIGenerationClient(),
+      model: "test-model",
+    });
+
+    expect(result.insufficientEvidence).toBe(false);
+    expect(result.citations.map((citation) => citation.label)).toEqual(["S1"]);
+  });
+
+  it("rejects unexpected Responses API payloads safely", async () => {
+    stubDenoEnv();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          status: "completed",
+          output: [],
+        }),
+      ),
+    );
+
+    await expect(
+      generateGroundedAnswer({
+        question: "¿Qué hacer?",
+        evidence: [retrieval()],
+        client: new OpenAIGenerationClient(),
+        model: "test-model",
       }),
     ).rejects.toMatchObject({ kind: "malformed_response" });
   });
@@ -549,4 +745,14 @@ describe("grounded chat pipeline", () => {
 function clock(values: number[]): () => number {
   let index = 0;
   return () => values[Math.min(index++, values.length - 1)];
+}
+
+function stubDenoEnv(): void {
+  vi.stubGlobal("Deno", {
+    env: {
+      get(name: string): string | undefined {
+        return name === "OPENAI_API_KEY" ? "test-api-key" : undefined;
+      },
+    },
+  });
 }
