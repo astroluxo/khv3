@@ -70,7 +70,10 @@ Prefer deterministic identifiers from `(source_document_id, logical_section_path
 
 Use the same `chunks` table for:
 
-- `embedding vector(1536)`
+- `embedding vector(1536)`. The application embedding contract is centralized in the
+  OpenAI embedding client: `OPENAI_EMBEDDING_DIMENSIONS` defaults to `1536`, embedding
+  requests include that dimension, and returned vectors are rejected if their length
+  differs. Do not truncate or pad embeddings.
 - generated `tsvector` column for keyword search
 - metadata columns / JSONB
 
