@@ -4,15 +4,20 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   calculateConfusionMetrics,
+  calculateWhatIfMetrics,
+  classifyComponentComparison,
   evaluateCase,
   evaluateCompositeParameterSweep,
   evaluateCompositeStrategies,
   evaluateLexicalThresholds,
   evaluateStrategies,
+  rankLexicalOnly,
+  rankVectorOnly,
   summarizeCompositeSignalDistributions,
   summarizeLexicalOverlapDistributions,
   summarizeObservations,
   validateFixtureCases,
+  type DiagnosticChunk,
   type EvalCase,
 } from "../scripts/retrieval-eval.ts";
 import type { RetrievalResult } from "../supabase/functions/_shared/retrieval.ts";
@@ -56,6 +61,22 @@ function result(overrides: Partial<RetrievalResult> = {}): RetrievalResult {
       vectorRank: 1,
       textRank: 1,
     },
+    ...overrides,
+  };
+}
+
+function diagnosticChunk(overrides: Partial<DiagnosticChunk> = {}): DiagnosticChunk {
+  return {
+    documentTitle: "Módulo 11: Calificación",
+    documentId: "document-1",
+    sourceUrl: "https://notion.local/page-1",
+    area: "Académica",
+    accessScope: "default",
+    sectionPath: "Módulo 11: Calificación > Control de asistencias",
+    content: "registro asistencia estudiante docente",
+    tokenEstimate: 60,
+    ordinal: 0,
+    embedding: [1, 0, 0],
     ...overrides,
   };
 }
@@ -655,5 +676,182 @@ describe("retrieval sufficiency strategy evaluation", () => {
     ]);
     expect(sweep.length).toBeGreaterThan(comparison.length);
     expect(sweep[0].metrics.recall).toBeGreaterThanOrEqual(sweep[sweep.length - 1].metrics.recall);
+  });
+});
+
+describe("retrieval component diagnostics", () => {
+  it("ranks vector-only candidates by cosine similarity", () => {
+    const ranking = rankVectorOnly(
+      [1, 0, 0],
+      [
+        diagnosticChunk({
+          documentTitle: "Expected",
+          sectionPath: "Expected > Section",
+          embedding: [0.8, 0.2, 0],
+        }),
+        diagnosticChunk({
+          documentTitle: "Other",
+          sectionPath: "Other > Section",
+          embedding: [0, 1, 0],
+        }),
+      ],
+    );
+
+    expect(ranking[0]).toMatchObject({
+      documentTitle: "Expected",
+      rank: 1,
+    });
+    expect(ranking[0].similarity).toBeGreaterThan(ranking[1].similarity ?? 0);
+  });
+
+  it("ranks lexical-only candidates with deterministic overlap scores", () => {
+    const ranking = rankLexicalOnly("registro asistencia estudiante", [
+      diagnosticChunk({
+        documentTitle: "Expected",
+        sectionPath: "Expected > Asistencia",
+        content: "registro asistencia estudiante docente",
+      }),
+      diagnosticChunk({
+        documentTitle: "Other",
+        sectionPath: "Other > Pagos",
+        content: "cuotas pagos financiera",
+      }),
+    ]);
+
+    expect(ranking).toHaveLength(1);
+    expect(ranking[0]).toMatchObject({
+      documentTitle: "Expected",
+      rank: 1,
+      textScore: 1,
+    });
+  });
+
+  it("classifies component comparison outcomes", () => {
+    expect(
+      classifyComponentComparison({
+        hybridPassed: false,
+        vectorPassed: true,
+        lexicalPassed: false,
+        vectorHasExpected: true,
+        lexicalHasExpected: false,
+        hybridExpectedRank: null,
+        vectorExpectedRank: 1,
+      }),
+    ).toBe("vector_succeeds_hybrid_fails");
+
+    expect(
+      classifyComponentComparison({
+        hybridPassed: false,
+        vectorPassed: false,
+        lexicalPassed: false,
+        vectorHasExpected: false,
+        lexicalHasExpected: false,
+        hybridExpectedRank: null,
+        vectorExpectedRank: null,
+      }),
+    ).toBe("expected_absent_from_both_components");
+  });
+
+  it("calculates what-if metrics from diagnostic rankings", () => {
+    const positive = evaluateCase(fixtureCase({ id: "positive" }), [result()], {
+      vectorOnly: {
+        top1Document: "Módulo 11: Calificación",
+        top1Section: "Módulo 11: Calificación > Control de asistencias",
+        expectedDocumentRank: 1,
+        expectedSectionRank: 1,
+        expectedDocumentTop1: true,
+        expectedDocumentTopK: true,
+        expectedSectionTopK: true,
+        top1Similarity: 0.9,
+        expectedBestSimilarity: 0.9,
+        top1ExpectedSimilarityGap: 0,
+      },
+      lexicalOnly: {
+        top1Document: null,
+        top1Section: null,
+        expectedDocumentRank: null,
+        expectedSectionRank: null,
+        expectedDocumentTop1: false,
+        expectedDocumentTopK: false,
+        expectedSectionTopK: false,
+        anyLexicalResult: false,
+        expectedBestTextScore: null,
+      },
+      hybrid: {
+        top1Document: "Módulo 11: Calificación",
+        top1Section: "Módulo 11: Calificación > Control de asistencias",
+        expectedDocumentRank: 1,
+        expectedSectionRank: 1,
+        expectedDocumentTop1: true,
+        expectedDocumentTopK: true,
+        expectedSectionTopK: true,
+      },
+      fusion: {
+        top1Document: "Módulo 11: Calificación",
+        top1Section: "Módulo 11: Calificación > Control de asistencias",
+        expectedDocumentRank: 1,
+        expectedSectionRank: 1,
+        expectedDocumentTop1: true,
+        expectedDocumentTopK: true,
+        expectedSectionTopK: true,
+        expectedBestVectorRank: 1,
+        expectedBestLexicalRank: null,
+        expectedBestFusedRank: 1,
+        expectedBestVectorContribution: 0.0196,
+        expectedBestTextContribution: 0,
+        expectedBestFusedScore: 0.0196,
+        fusionAssessment: "neutral",
+      },
+      rankings: {
+        vectorTopK: [
+          {
+            rank: 1,
+            documentTitle: "Módulo 11: Calificación",
+            sectionPath: "Módulo 11: Calificación > Control de asistencias",
+            contentPreview: "registro asistencia estudiante",
+            tokenEstimate: 40,
+            similarity: 0.9,
+          },
+        ],
+        lexicalTopK: [],
+        hybridTopK: [
+          {
+            rank: 1,
+            documentTitle: "Módulo 11: Calificación",
+            sectionPath: "Módulo 11: Calificación > Control de asistencias",
+            contentPreview: "registro asistencia estudiante",
+            tokenEstimate: 40,
+            fusedScore: 0.0196,
+          },
+        ],
+        vectorDominantTopK: [
+          {
+            rank: 1,
+            documentTitle: "Módulo 11: Calificación",
+            sectionPath: "Módulo 11: Calificación > Control de asistencias",
+            contentPreview: "registro asistencia estudiante",
+            tokenEstimate: 40,
+            fusedScore: 0.0392,
+          },
+        ],
+      },
+      componentComparison: "hybrid_equals_vector",
+      failureCause: null,
+      chunkRepresentation: null,
+      queryAnalysis: null,
+    });
+
+    const metrics = calculateWhatIfMetrics(
+      [positive],
+      (observation) => observation.componentDiagnostics?.rankings.vectorTopK ?? [],
+    );
+
+    expect(metrics).toMatchObject({
+      totalCases: 1,
+      top1DocumentAccuracy: 1,
+      topKDocumentRecall: 1,
+      top1SectionAccuracy: 1,
+      topKSectionHit: 1,
+    });
   });
 });

@@ -93,6 +93,116 @@ export type CaseObservation = {
   negativeReturnedEvidence: boolean;
   candidates: CandidateObservation[];
   signals: CaseSignals;
+  componentDiagnostics?: CaseComponentDiagnostics;
+};
+
+export type DiagnosticChunk = {
+  documentTitle: string;
+  documentId: string;
+  sourceUrl: string | null;
+  area: string | null;
+  accessScope: string;
+  sectionPath: string | null;
+  content: string;
+  tokenEstimate: number | null;
+  ordinal: number;
+  embedding: number[];
+};
+
+export type DiagnosticRankedChunk = {
+  rank: number;
+  documentTitle: string;
+  sectionPath: string | null;
+  contentPreview: string;
+  tokenEstimate: number | null;
+  similarity?: number;
+  textScore?: number;
+  vectorRank?: number | null;
+  lexicalRank?: number | null;
+  fusedScore?: number;
+  vectorContribution?: number;
+  textContribution?: number;
+};
+
+export type ComponentRankingDiagnostics = {
+  top1Document: string | null;
+  top1Section: string | null;
+  expectedDocumentRank: number | null;
+  expectedSectionRank: number | null;
+  expectedDocumentTop1: boolean;
+  expectedDocumentTopK: boolean;
+  expectedSectionTopK: boolean;
+};
+
+export type VectorDiagnostics = ComponentRankingDiagnostics & {
+  top1Similarity: number | null;
+  expectedBestSimilarity: number | null;
+  top1ExpectedSimilarityGap: number | null;
+};
+
+export type LexicalDiagnostics = ComponentRankingDiagnostics & {
+  anyLexicalResult: boolean;
+  expectedBestTextScore: number | null;
+};
+
+export type FusionDiagnostics = ComponentRankingDiagnostics & {
+  expectedBestVectorRank: number | null;
+  expectedBestLexicalRank: number | null;
+  expectedBestFusedRank: number | null;
+  expectedBestVectorContribution: number;
+  expectedBestTextContribution: number;
+  expectedBestFusedScore: number | null;
+  fusionAssessment: "beneficial" | "harmful" | "neutral";
+};
+
+export type ComponentComparison =
+  | "vector_succeeds_hybrid_fails"
+  | "vector_fails_hybrid_fails"
+  | "lexical_helps_hybrid"
+  | "lexical_hurts_hybrid"
+  | "hybrid_equals_vector"
+  | "expected_absent_from_both_components";
+
+export type FailureCause =
+  | "vector_semantic_miss"
+  | "lexical_miss"
+  | "fusion_degradation"
+  | "chunk_representation_problem"
+  | "expected_section_granularity_issue"
+  | "fixture_expectation_issue"
+  | "mixed_uncertain";
+
+export type ChunkRepresentationObservation = {
+  documentTitle: string;
+  headingPath: string | null;
+  sectionTitle: string | null;
+  tokenEstimate: number | null;
+  approximateTokenCount: number;
+  embeddingInputStructure: ["Document title", "Heading path", "chunk content"];
+  chunkShape: "too_broad" | "too_narrow" | "reasonable" | "uncertain";
+  likelyIssues: string[];
+};
+
+export type CaseComponentDiagnostics = {
+  vectorOnly: VectorDiagnostics;
+  lexicalOnly: LexicalDiagnostics;
+  hybrid: ComponentRankingDiagnostics;
+  fusion: FusionDiagnostics;
+  rankings: {
+    vectorTopK: DiagnosticRankedChunk[];
+    lexicalTopK: DiagnosticRankedChunk[];
+    hybridTopK: DiagnosticRankedChunk[];
+    vectorDominantTopK: DiagnosticRankedChunk[];
+  };
+  componentComparison: ComponentComparison;
+  failureCause: FailureCause | null;
+  chunkRepresentation: ChunkRepresentationObservation | null;
+  queryAnalysis: {
+    queryTokens: string[];
+    expectedChunkTokenOverlap: number;
+    expectedChunkContainsParaphraseTerms: boolean;
+    likelyMismatch: string[];
+  } | null;
 };
 
 export type RetrievalSummary = {
@@ -184,6 +294,8 @@ export type BenchmarkArtifact = {
   compositeParameterSweep: CompositeSweepResult[];
   paraphraseCompositeParameterSweep: CompositeSweepResult[];
   bestCompositeCandidate: StrategyComparison | null;
+  phase9dComponentSummary: ComponentDiagnosticSummary;
+  whatIfVariants: WhatIfVariantResult[];
   observations: CaseObservation[];
   notes: string[];
 };
@@ -238,6 +350,44 @@ export type CompositeSweepResult = {
   metrics: ConfusionMetrics;
 };
 
+export type ComponentDiagnosticSummary = {
+  paraphrasePositiveCases: number;
+  paraphrasePositiveFailures: string[];
+  vectorOnly: ComponentMetricSummary;
+  lexicalOnly: ComponentMetricSummary;
+  hybrid: ComponentMetricSummary;
+  lexicalAggregate: {
+    anyLexicalHit: number;
+    correctDocumentLexicalHit: number;
+    correctSectionLexicalHit: number;
+  };
+  rrfAssessment: {
+    beneficial: number;
+    neutral: number;
+    harmful: number;
+  };
+};
+
+export type ComponentMetricSummary = {
+  totalCases: number;
+  top1DocumentAccuracy: number;
+  topKDocumentRecall: number;
+  top1SectionAccuracy: number;
+  topKSectionHit: number;
+};
+
+export type WhatIfVariantResult = {
+  variantId:
+    | "vector_only"
+    | "current_hybrid"
+    | "lexical_disabled"
+    | "vector_dominant"
+    | "document_vector_aggregation";
+  label: string;
+  originalPositive: ComponentMetricSummary;
+  paraphrasePositive: ComponentMetricSummary;
+};
+
 type RuntimeEnv = Record<string, string | undefined>;
 
 class FetchRpcClient implements RetrievalRpcClient {
@@ -271,6 +421,55 @@ class FetchRpcClient implements RetrievalRpcClient {
   }
 }
 
+class FetchDiagnosticChunkClient {
+  private readonly supabaseUrl: string;
+  private readonly serviceRoleKey: string;
+
+  constructor(options: { supabaseUrl: string; serviceRoleKey: string }) {
+    this.supabaseUrl = options.supabaseUrl.replace(/\/$/, "");
+    this.serviceRoleKey = options.serviceRoleKey;
+  }
+
+  async listEligibleChunks(): Promise<DiagnosticChunk[]> {
+    const url = new URL(`${this.supabaseUrl}/rest/v1/chunks`);
+    url.searchParams.set(
+      "select",
+      [
+        "document_id",
+        "section_path",
+        "content",
+        "token_estimate",
+        "ordinal",
+        "embedding",
+        "documents!inner(id,title,source_url,area,access_scope,status,published_ac)",
+      ].join(","),
+    );
+    url.searchParams.set("documents.status", "eq.published");
+    url.searchParams.set("documents.published_ac", "is.true");
+    url.searchParams.set("documents.access_scope", "eq.default");
+    url.searchParams.set("embedding", "not.is.null");
+    url.searchParams.set("order", "document_id.asc,ordinal.asc");
+
+    const response = await fetch(url, {
+      headers: {
+        apikey: this.serviceRoleKey,
+        authorization: `Bearer ${this.serviceRoleKey}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error(
+        `Evaluation chunk fetch failed: ${JSON.stringify(await safeErrorPayload(response))}`,
+      );
+    }
+
+    const payload: unknown = await response.json();
+    if (!Array.isArray(payload)) {
+      throw new Error("Evaluation chunk fetch did not return rows");
+    }
+    return payload.map(mapDiagnosticChunkRow);
+  }
+}
+
 class CountingEmbeddingClient implements EmbeddingClient {
   readonly dimensions: number;
   requestCount = 0;
@@ -284,6 +483,20 @@ class CountingEmbeddingClient implements EmbeddingClient {
   async embedMany(inputs: string[]): Promise<number[][]> {
     if (inputs.length > 0) this.requestCount += 1;
     return this.inner.embedMany(inputs);
+  }
+}
+
+class StaticEmbeddingClient implements EmbeddingClient {
+  readonly dimensions: number;
+  private readonly embedding: number[];
+
+  constructor(embedding: number[], dimensions: number) {
+    this.embedding = embedding;
+    this.dimensions = dimensions;
+  }
+
+  async embedMany(inputs: string[]): Promise<number[][]> {
+    return inputs.map(() => this.embedding);
   }
 }
 
@@ -365,7 +578,11 @@ export function validateFixtureCases(
   });
 }
 
-export function evaluateCase(testCase: EvalCase, results: RetrievalResult[]): CaseObservation {
+export function evaluateCase(
+  testCase: EvalCase,
+  results: RetrievalResult[],
+  componentDiagnostics?: CaseComponentDiagnostics,
+): CaseObservation {
   const candidates = results.map((result, index) => mapCandidate(result, index, testCase.question));
   const expectedDocumentRank = findExpectedDocumentRank(testCase, results);
   const expectedSectionRank = findExpectedSectionRank(testCase, results);
@@ -391,6 +608,7 @@ export function evaluateCase(testCase: EvalCase, results: RetrievalResult[]): Ca
     negativeReturnedEvidence: !testCase.expected.shouldHaveEvidence && results.length > 0,
     candidates,
     signals: calculateSignals(candidates, testCase.question, results),
+    ...(componentDiagnostics ? { componentDiagnostics } : {}),
   };
 }
 
@@ -897,16 +1115,31 @@ export async function runRetrievalBenchmark(options: {
     supabaseUrl: required(options.env.SUPABASE_URL, "SUPABASE_URL"),
     serviceRoleKey: required(options.env.SUPABASE_SERVICE_ROLE_KEY, "SUPABASE_SERVICE_ROLE_KEY"),
   });
+  const diagnosticChunks = await new FetchDiagnosticChunkClient({
+    supabaseUrl: required(options.env.SUPABASE_URL, "SUPABASE_URL"),
+    serviceRoleKey: required(options.env.SUPABASE_SERVICE_ROLE_KEY, "SUPABASE_SERVICE_ROLE_KEY"),
+  }).listEligibleChunks();
 
   const observations: CaseObservation[] = [];
   for (const testCase of cases) {
+    const query = testCase.question.trim();
+    const [queryEmbedding] = await embeddingClient.embedMany([query]);
+    if (!queryEmbedding) {
+      throw new Error(`Embedding client returned no query vector for case ${testCase.id}`);
+    }
     const results = await retrieveKnowledge({
-      query: testCase.question,
+      query,
       supabase,
-      embeddingClient,
+      embeddingClient: new StaticEmbeddingClient(queryEmbedding, embeddingClient.dimensions),
       options: { limit: DEFAULT_LIMIT, filters: { accessScopes: ["default"] } },
     });
-    observations.push(evaluateCase(testCase, results));
+    const componentDiagnostics = analyzeRetrievalComponents(
+      testCase,
+      results,
+      queryEmbedding,
+      diagnosticChunks,
+    );
+    observations.push(evaluateCase(testCase, results, componentDiagnostics));
   }
   const originalObservations = observations.filter(
     (observation) => observation.suite === "original",
@@ -939,12 +1172,18 @@ export async function runRetrievalBenchmark(options: {
       originalCompositeStrategies,
       paraphraseCompositeStrategies,
     ),
+    phase9dComponentSummary: summarizeComponentDiagnostics(
+      originalObservations,
+      paraphraseObservations,
+    ),
+    whatIfVariants: evaluateWhatIfVariants(originalObservations, paraphraseObservations),
     observations,
     notes: [
       "No raw embeddings, secrets, JWTs, or service-role credentials are stored in this artifact.",
       "Cosine similarity is not exposed by the production retrieval RPC; strategy3 uses only an RRF rank-separation proxy.",
       "This benchmark observes production retrieval behavior but does not change ranking or sufficiency gates.",
       "Phase 9C composite strategies are offline experiments only and are not production sufficiency gates.",
+      "Phase 9D component diagnostics use evaluation-only local chunk reads; raw embeddings are used only in memory and are not stored.",
     ],
   };
 
@@ -971,6 +1210,208 @@ function mapCandidate(
       result.sectionPath ?? "",
       result.content,
     ]),
+  };
+}
+
+export function rankVectorOnly(
+  queryEmbedding: number[],
+  chunks: DiagnosticChunk[],
+): DiagnosticRankedChunk[] {
+  return chunks
+    .map((chunk) => ({
+      chunk,
+      similarity: cosineSimilarity(queryEmbedding, chunk.embedding),
+    }))
+    .sort(
+      (left, right) =>
+        right.similarity - left.similarity ||
+        left.chunk.documentTitle.localeCompare(right.chunk.documentTitle) ||
+        (left.chunk.sectionPath ?? "").localeCompare(right.chunk.sectionPath ?? "") ||
+        left.chunk.ordinal - right.chunk.ordinal,
+    )
+    .map(({ chunk, similarity }, index) =>
+      mapDiagnosticRankedChunk(chunk, index + 1, { similarity: round(similarity) }),
+    );
+}
+
+export function rankLexicalOnly(query: string, chunks: DiagnosticChunk[]): DiagnosticRankedChunk[] {
+  return chunks
+    .map((chunk) => ({
+      chunk,
+      textScore: queryOverlap(query, [chunk.sectionPath ?? "", chunk.content]),
+    }))
+    .filter(({ textScore }) => textScore > 0)
+    .sort(
+      (left, right) =>
+        right.textScore - left.textScore ||
+        left.chunk.documentTitle.localeCompare(right.chunk.documentTitle) ||
+        (left.chunk.sectionPath ?? "").localeCompare(right.chunk.sectionPath ?? "") ||
+        left.chunk.ordinal - right.chunk.ordinal,
+    )
+    .map(({ chunk, textScore }, index) =>
+      mapDiagnosticRankedChunk(chunk, index + 1, { textScore }),
+    );
+}
+
+export function classifyComponentComparison(input: {
+  hybridPassed: boolean;
+  vectorPassed: boolean;
+  lexicalPassed: boolean;
+  vectorHasExpected: boolean;
+  lexicalHasExpected: boolean;
+  hybridExpectedRank: number | null;
+  vectorExpectedRank: number | null;
+}): ComponentComparison {
+  if (!input.vectorHasExpected && !input.lexicalHasExpected)
+    return "expected_absent_from_both_components";
+  if (input.vectorPassed && !input.hybridPassed) return "vector_succeeds_hybrid_fails";
+  if (!input.vectorPassed && !input.hybridPassed) return "vector_fails_hybrid_fails";
+  if (input.hybridPassed && input.lexicalPassed && !input.vectorPassed)
+    return "lexical_helps_hybrid";
+  if (
+    input.hybridExpectedRank !== null &&
+    input.vectorExpectedRank !== null &&
+    input.hybridExpectedRank > input.vectorExpectedRank
+  ) {
+    return "lexical_hurts_hybrid";
+  }
+  return "hybrid_equals_vector";
+}
+
+export function calculateWhatIfMetrics(
+  cases: CaseObservation[],
+  rankingFor: (caseObservation: CaseObservation) => DiagnosticRankedChunk[],
+): ComponentMetricSummary {
+  const positives = cases.filter((observation) => observation.expected.shouldHaveEvidence);
+  const summaries = positives.map((observation) =>
+    rankingSummary(observation.expected, rankingFor(observation).slice(0, DEFAULT_LIMIT)),
+  );
+
+  return {
+    totalCases: positives.length,
+    top1DocumentAccuracy: ratio(
+      summaries.filter((summary) => summary.expectedDocumentTop1).length,
+      positives.length,
+    ),
+    topKDocumentRecall: ratio(
+      summaries.filter((summary) => summary.expectedDocumentRank !== null).length,
+      positives.length,
+    ),
+    top1SectionAccuracy: ratio(
+      summaries.filter((summary) => summary.expectedSectionTop1).length,
+      positives.length,
+    ),
+    topKSectionHit: ratio(
+      summaries.filter((summary) => summary.expectedSectionRank !== null).length,
+      positives.length,
+    ),
+  };
+}
+
+function analyzeRetrievalComponents(
+  testCase: EvalCase,
+  hybridResults: RetrievalResult[],
+  queryEmbedding: number[],
+  chunks: DiagnosticChunk[],
+): CaseComponentDiagnostics {
+  const vectorRanking = rankVectorOnly(queryEmbedding, chunks);
+  const lexicalRanking = rankLexicalOnly(testCase.question, chunks);
+  const hybridRanking = hybridResults.map((result, index) =>
+    mapHybridDiagnosticRankedChunk(result, index + 1),
+  );
+  const currentFusionRanking = combineRrfRankings(vectorRanking, lexicalRanking, {
+    vectorWeight: 1,
+    textWeight: 1,
+    rrfK: 50,
+  });
+  const vectorDominantRanking = combineRrfRankings(vectorRanking, lexicalRanking, {
+    vectorWeight: 2,
+    textWeight: 0.25,
+    rrfK: 50,
+  });
+
+  const vectorTopK = vectorRanking.slice(0, DEFAULT_LIMIT);
+  const lexicalTopK = lexicalRanking.slice(0, DEFAULT_LIMIT);
+  const hybridTopK = hybridRanking.slice(0, DEFAULT_LIMIT);
+  const vectorSummary = rankingSummary(testCase.expected, vectorRanking);
+  const lexicalSummary = rankingSummary(testCase.expected, lexicalRanking);
+  const hybridSummary = rankingSummary(testCase.expected, hybridTopK);
+  const fusionSummary = rankingSummary(testCase.expected, currentFusionRanking);
+  const expectedVectorCandidate = bestExpectedCandidate(testCase.expected, vectorRanking);
+  const expectedLexicalCandidate = bestExpectedCandidate(testCase.expected, lexicalRanking);
+  const expectedFusionCandidate = bestExpectedCandidate(testCase.expected, currentFusionRanking);
+  const likelyExpectedCandidate =
+    expectedVectorCandidate ??
+    expectedLexicalCandidate ??
+    expectedFusionCandidate ??
+    bestLikelyExpectedCandidate(testCase.expected, vectorRanking) ??
+    bestLikelyExpectedCandidate(testCase.expected, lexicalRanking) ??
+    bestLikelyExpectedCandidate(testCase.expected, currentFusionRanking) ??
+    null;
+  const topVector = vectorRanking[0];
+  const topSimilarity = topVector?.similarity ?? null;
+  const expectedBestSimilarity = expectedVectorCandidate?.similarity ?? null;
+  const componentComparison = classifyComponentComparison({
+    hybridPassed: hybridSummary.expectedDocumentTop1,
+    vectorPassed: vectorSummary.expectedDocumentTop1,
+    lexicalPassed: lexicalSummary.expectedDocumentTop1,
+    vectorHasExpected: expectedVectorCandidate !== undefined,
+    lexicalHasExpected: expectedLexicalCandidate !== undefined,
+    hybridExpectedRank: hybridSummary.expectedDocumentRank,
+    vectorExpectedRank: vectorSummary.expectedDocumentRank,
+  });
+  const chunkRepresentation = buildChunkRepresentationObservation(
+    testCase,
+    likelyExpectedCandidate,
+  );
+  const queryAnalysis = buildQueryAnalysis(testCase, chunkRepresentation);
+
+  return {
+    vectorOnly: {
+      ...componentSummaryFields(vectorSummary),
+      top1Similarity: topSimilarity,
+      expectedBestSimilarity,
+      top1ExpectedSimilarityGap:
+        topSimilarity !== null && expectedBestSimilarity !== null
+          ? round(topSimilarity - expectedBestSimilarity)
+          : null,
+    },
+    lexicalOnly: {
+      ...componentSummaryFields(lexicalSummary),
+      anyLexicalResult: lexicalRanking.length > 0,
+      expectedBestTextScore: expectedLexicalCandidate?.textScore ?? null,
+    },
+    hybrid: componentSummaryFields(hybridSummary),
+    fusion: {
+      ...componentSummaryFields(fusionSummary),
+      expectedBestVectorRank: expectedFusionCandidate?.vectorRank ?? null,
+      expectedBestLexicalRank: expectedFusionCandidate?.lexicalRank ?? null,
+      expectedBestFusedRank: expectedFusionCandidate?.rank ?? null,
+      expectedBestVectorContribution: expectedFusionCandidate?.vectorContribution ?? 0,
+      expectedBestTextContribution: expectedFusionCandidate?.textContribution ?? 0,
+      expectedBestFusedScore: expectedFusionCandidate?.fusedScore ?? null,
+      fusionAssessment: assessFusion(vectorSummary, lexicalSummary, hybridSummary),
+    },
+    rankings: {
+      vectorTopK,
+      lexicalTopK,
+      hybridTopK,
+      vectorDominantTopK: vectorDominantRanking.slice(0, DEFAULT_LIMIT),
+    },
+    componentComparison,
+    failureCause: testCase.expected.shouldHaveEvidence
+      ? classifyFailureCause({
+          expected: testCase.expected,
+          hybridSummary,
+          vectorSummary,
+          lexicalSummary,
+          componentComparison,
+          chunkRepresentation,
+          queryAnalysis,
+        })
+      : null,
+    chunkRepresentation,
+    queryAnalysis,
   };
 }
 
@@ -1050,6 +1491,210 @@ function findExpectedSectionRank(testCase: EvalCase, results: RetrievalResult[])
       normalize(result.sectionPath).includes(sectionNeedle),
   );
   return index >= 0 ? index + 1 : null;
+}
+
+function evaluateWhatIfVariants(
+  originalObservations: CaseObservation[],
+  paraphraseObservations: CaseObservation[],
+): WhatIfVariantResult[] {
+  const variants: Array<{
+    variantId: WhatIfVariantResult["variantId"];
+    label: string;
+    rankingFor: (observation: CaseObservation) => DiagnosticRankedChunk[];
+  }> = [
+    {
+      variantId: "vector_only",
+      label: "Vector-only ranking",
+      rankingFor: (observation) => componentRanking(observation, "vector"),
+    },
+    {
+      variantId: "current_hybrid",
+      label: "Current production hybrid ranking",
+      rankingFor: (observation) => componentRanking(observation, "hybrid"),
+    },
+    {
+      variantId: "lexical_disabled",
+      label: "Hybrid with lexical contribution disabled",
+      rankingFor: (observation) => componentRanking(observation, "vector"),
+    },
+    {
+      variantId: "vector_dominant",
+      label: "RRF what-if with vector-dominant weighting",
+      rankingFor: (observation) => componentRanking(observation, "vector_dominant"),
+    },
+    {
+      variantId: "document_vector_aggregation",
+      label: "Document-level aggregation of vector evidence",
+      rankingFor: (observation) => aggregateByDocument(componentRanking(observation, "vector")),
+    },
+  ];
+
+  return variants.map((variant) => ({
+    variantId: variant.variantId,
+    label: variant.label,
+    originalPositive: calculateWhatIfMetrics(originalObservations, variant.rankingFor),
+    paraphrasePositive: calculateWhatIfMetrics(paraphraseObservations, variant.rankingFor),
+  }));
+}
+
+function summarizeComponentDiagnostics(
+  originalObservations: CaseObservation[],
+  paraphraseObservations: CaseObservation[],
+): ComponentDiagnosticSummary {
+  const paraphrasePositives = paraphraseObservations.filter(
+    (observation) => observation.expected.shouldHaveEvidence,
+  );
+  const failures = paraphrasePositives.filter((observation) => !observation.expectedDocumentTopK);
+  const lexicalDiagnostics = paraphrasePositives
+    .map((observation) => observation.componentDiagnostics?.lexicalOnly)
+    .filter((diagnostic): diagnostic is LexicalDiagnostics => diagnostic !== undefined);
+  const fusionDiagnostics = [...originalObservations, ...paraphraseObservations]
+    .map((observation) => observation.componentDiagnostics?.fusion.fusionAssessment)
+    .filter(
+      (assessment): assessment is FusionDiagnostics["fusionAssessment"] => assessment !== undefined,
+    );
+
+  return {
+    paraphrasePositiveCases: paraphrasePositives.length,
+    paraphrasePositiveFailures: failures.map((observation) => observation.id),
+    vectorOnly: calculateWhatIfMetrics(paraphrasePositives, (observation) =>
+      componentRanking(observation, "vector"),
+    ),
+    lexicalOnly: calculateWhatIfMetrics(paraphrasePositives, (observation) =>
+      componentRanking(observation, "lexical"),
+    ),
+    hybrid: calculateWhatIfMetrics(paraphrasePositives, (observation) =>
+      componentRanking(observation, "hybrid"),
+    ),
+    lexicalAggregate: {
+      anyLexicalHit: lexicalDiagnostics.filter((diagnostic) => diagnostic.anyLexicalResult).length,
+      correctDocumentLexicalHit: lexicalDiagnostics.filter(
+        (diagnostic) => diagnostic.expectedDocumentRank !== null,
+      ).length,
+      correctSectionLexicalHit: lexicalDiagnostics.filter(
+        (diagnostic) => diagnostic.expectedSectionRank !== null,
+      ).length,
+    },
+    rrfAssessment: {
+      beneficial: fusionDiagnostics.filter((assessment) => assessment === "beneficial").length,
+      neutral: fusionDiagnostics.filter((assessment) => assessment === "neutral").length,
+      harmful: fusionDiagnostics.filter((assessment) => assessment === "harmful").length,
+    },
+  };
+}
+
+function componentRanking(
+  observation: CaseObservation,
+  mode: "vector" | "lexical" | "hybrid" | "vector_dominant",
+): DiagnosticRankedChunk[] {
+  const diagnostics = observation.componentDiagnostics;
+  if (!diagnostics) return [];
+  const vector = diagnosticsToRanking(diagnostics, "vector");
+  const lexical = diagnosticsToRanking(diagnostics, "lexical");
+  if (mode === "vector") return vector;
+  if (mode === "lexical") return lexical;
+  if (mode === "vector_dominant") return diagnostics.rankings.vectorDominantTopK;
+  return diagnosticsToRanking(diagnostics, "hybrid");
+}
+
+function diagnosticsToRanking(
+  diagnostics: CaseComponentDiagnostics,
+  mode: "vector" | "lexical" | "hybrid",
+): DiagnosticRankedChunk[] {
+  if (mode === "vector") return diagnostics.rankings.vectorTopK;
+  if (mode === "lexical") return diagnostics.rankings.lexicalTopK;
+  return diagnostics.rankings.hybridTopK;
+}
+
+function componentSummaryFields(
+  summary: ReturnType<typeof rankingSummary>,
+): ComponentRankingDiagnostics {
+  return {
+    top1Document: summary.top1Document,
+    top1Section: summary.top1Section,
+    expectedDocumentRank: summary.expectedDocumentRank,
+    expectedSectionRank: summary.expectedSectionRank,
+    expectedDocumentTop1: summary.expectedDocumentTop1,
+    expectedDocumentTopK:
+      summary.expectedDocumentRank !== null && summary.expectedDocumentRank <= DEFAULT_LIMIT,
+    expectedSectionTopK:
+      summary.expectedSectionRank !== null && summary.expectedSectionRank <= DEFAULT_LIMIT,
+  };
+}
+
+function rankingSummary(expected: EvalExpected, ranking: DiagnosticRankedChunk[]) {
+  const expectedTitle = normalize(expected.documentTitle);
+  const expectedSection = normalize(expected.sectionContains);
+  const expectedDocumentIndex = expectedTitle
+    ? ranking.findIndex((candidate) => normalize(candidate.documentTitle) === expectedTitle)
+    : -1;
+  const expectedSectionIndex =
+    expectedTitle && expectedSection
+      ? ranking.findIndex(
+          (candidate) =>
+            normalize(candidate.documentTitle) === expectedTitle &&
+            normalize(candidate.sectionPath).includes(expectedSection),
+        )
+      : -1;
+
+  return {
+    top1Document: ranking[0]?.documentTitle ?? null,
+    top1Section: ranking[0]?.sectionPath ?? null,
+    expectedDocumentRank: expectedDocumentIndex >= 0 ? expectedDocumentIndex + 1 : null,
+    expectedSectionRank: expectedSectionIndex >= 0 ? expectedSectionIndex + 1 : null,
+    expectedDocumentTop1: expectedDocumentIndex === 0,
+    expectedSectionTop1: expectedSectionIndex === 0,
+  };
+}
+
+function bestExpectedCandidate(
+  expected: EvalExpected,
+  ranking: DiagnosticRankedChunk[],
+): DiagnosticRankedChunk | undefined {
+  const expectedTitle = normalize(expected.documentTitle);
+  const expectedSection = normalize(expected.sectionContains);
+  return ranking.find(
+    (candidate) =>
+      normalize(candidate.documentTitle) === expectedTitle &&
+      (!expectedSection || normalize(candidate.sectionPath).includes(expectedSection)),
+  );
+}
+
+function bestLikelyExpectedCandidate(
+  expected: EvalExpected,
+  ranking: DiagnosticRankedChunk[],
+): DiagnosticRankedChunk | undefined {
+  const expectedSection = normalize(expected.sectionContains);
+  return ranking.find(
+    (candidate) =>
+      titlesLikelyReferToSameDocument(expected.documentTitle, candidate.documentTitle) &&
+      (!expectedSection || normalize(candidate.sectionPath).includes(expectedSection)),
+  );
+}
+
+function assessFusion(
+  vectorSummary: ReturnType<typeof rankingSummary>,
+  lexicalSummary: ReturnType<typeof rankingSummary>,
+  hybridSummary: ReturnType<typeof rankingSummary>,
+): FusionDiagnostics["fusionAssessment"] {
+  if (
+    hybridSummary.expectedDocumentRank !== null &&
+    (vectorSummary.expectedDocumentRank === null ||
+      hybridSummary.expectedDocumentRank < vectorSummary.expectedDocumentRank)
+  ) {
+    return "beneficial";
+  }
+  if (
+    vectorSummary.expectedDocumentRank !== null &&
+    (hybridSummary.expectedDocumentRank === null ||
+      hybridSummary.expectedDocumentRank > vectorSummary.expectedDocumentRank)
+  ) {
+    return "harmful";
+  }
+  if (lexicalSummary.expectedDocumentRank !== null && vectorSummary.expectedDocumentRank === null) {
+    return "beneficial";
+  }
+  return "neutral";
 }
 
 function classifyCase(testCase: EvalCase): CaseObservation["classification"] {
@@ -1198,6 +1843,311 @@ function signalDistributionFor(
   };
 }
 
+function mapDiagnosticChunkRow(row: unknown): DiagnosticChunk {
+  if (!isRecord(row) || !isRecord(row.documents)) {
+    throw new Error("Evaluation chunk row is malformed");
+  }
+  return {
+    documentTitle: requireString(row.documents.title, "documents.title"),
+    documentId: requireString(row.documents.id, "documents.id"),
+    sourceUrl: nullableString(row.documents.source_url),
+    area: nullableString(row.documents.area),
+    accessScope: requireString(row.documents.access_scope, "documents.access_scope"),
+    sectionPath: nullableString(row.section_path),
+    content: requireString(row.content, "content"),
+    tokenEstimate: typeof row.token_estimate === "number" ? row.token_estimate : null,
+    ordinal: typeof row.ordinal === "number" ? row.ordinal : 0,
+    embedding: parseVector(row.embedding),
+  };
+}
+
+function mapDiagnosticRankedChunk(
+  chunk: DiagnosticChunk,
+  rank: number,
+  scores: {
+    similarity?: number;
+    textScore?: number;
+    vectorRank?: number | null;
+    lexicalRank?: number | null;
+    fusedScore?: number;
+    vectorContribution?: number;
+    textContribution?: number;
+  },
+): DiagnosticRankedChunk {
+  return {
+    rank,
+    documentTitle: chunk.documentTitle,
+    sectionPath: chunk.sectionPath,
+    contentPreview: preview(chunk.content),
+    tokenEstimate: chunk.tokenEstimate ?? approximateTokenCount(chunk.content),
+    ...scores,
+  };
+}
+
+function mapHybridDiagnosticRankedChunk(
+  result: RetrievalResult,
+  rank: number,
+): DiagnosticRankedChunk {
+  return {
+    rank,
+    documentTitle: result.document.title,
+    sectionPath: result.sectionPath ?? null,
+    contentPreview: preview(result.content),
+    tokenEstimate: approximateTokenCount(result.content),
+    fusedScore: result.diagnostics.fusedScore,
+    vectorRank: result.diagnostics.vectorRank ?? null,
+    lexicalRank: result.diagnostics.textRank ?? null,
+  };
+}
+
+function combineRrfRankings(
+  vectorRanking: DiagnosticRankedChunk[],
+  lexicalRanking: DiagnosticRankedChunk[],
+  options: { vectorWeight: number; textWeight: number; rrfK: number },
+): DiagnosticRankedChunk[] {
+  const byKey = new Map<
+    string,
+    {
+      candidate: DiagnosticRankedChunk;
+      vectorRank: number | null;
+      lexicalRank: number | null;
+      vectorContribution: number;
+      textContribution: number;
+    }
+  >();
+
+  for (const candidate of vectorRanking) {
+    const key = candidateKey(candidate);
+    byKey.set(key, {
+      candidate,
+      vectorRank: candidate.rank,
+      lexicalRank: null,
+      vectorContribution: round(options.vectorWeight / (options.rrfK + candidate.rank)),
+      textContribution: 0,
+    });
+  }
+  for (const candidate of lexicalRanking) {
+    const key = candidateKey(candidate);
+    const existing =
+      byKey.get(key) ??
+      ({
+        candidate,
+        vectorRank: null,
+        lexicalRank: null,
+        vectorContribution: 0,
+        textContribution: 0,
+      } satisfies {
+        candidate: DiagnosticRankedChunk;
+        vectorRank: number | null;
+        lexicalRank: number | null;
+        vectorContribution: number;
+        textContribution: number;
+      });
+    existing.lexicalRank = candidate.rank;
+    existing.textContribution = round(options.textWeight / (options.rrfK + candidate.rank));
+    byKey.set(key, existing);
+  }
+
+  return [...byKey.values()]
+    .map((entry) => ({
+      ...entry.candidate,
+      vectorRank: entry.vectorRank,
+      lexicalRank: entry.lexicalRank,
+      vectorContribution: entry.vectorContribution,
+      textContribution: entry.textContribution,
+      fusedScore: round(entry.vectorContribution + entry.textContribution),
+    }))
+    .sort(
+      (left, right) =>
+        (right.fusedScore ?? 0) - (left.fusedScore ?? 0) ||
+        (left.vectorRank ?? Number.MAX_SAFE_INTEGER) -
+          (right.vectorRank ?? Number.MAX_SAFE_INTEGER) ||
+        (left.lexicalRank ?? Number.MAX_SAFE_INTEGER) -
+          (right.lexicalRank ?? Number.MAX_SAFE_INTEGER) ||
+        left.documentTitle.localeCompare(right.documentTitle) ||
+        (left.sectionPath ?? "").localeCompare(right.sectionPath ?? ""),
+    )
+    .map((candidate, index) => ({ ...candidate, rank: index + 1 }));
+}
+
+function aggregateByDocument(ranking: DiagnosticRankedChunk[]): DiagnosticRankedChunk[] {
+  const byDocument = new Map<string, DiagnosticRankedChunk>();
+  for (const candidate of ranking) {
+    const current = byDocument.get(candidate.documentTitle);
+    if (!current || (candidate.similarity ?? 0) > (current.similarity ?? 0)) {
+      byDocument.set(candidate.documentTitle, candidate);
+    }
+  }
+  return [...byDocument.values()]
+    .sort(
+      (left, right) =>
+        (right.similarity ?? 0) - (left.similarity ?? 0) ||
+        left.documentTitle.localeCompare(right.documentTitle),
+    )
+    .map((candidate, index) => ({ ...candidate, rank: index + 1 }));
+}
+
+function candidateKey(
+  candidate: Pick<DiagnosticRankedChunk, "documentTitle" | "sectionPath" | "contentPreview">,
+): string {
+  return `${candidate.documentTitle}\n${candidate.sectionPath ?? ""}\n${candidate.contentPreview}`;
+}
+
+function buildChunkRepresentationObservation(
+  testCase: EvalCase,
+  candidate: DiagnosticRankedChunk | null,
+): ChunkRepresentationObservation | null {
+  if (!candidate || !testCase.expected.shouldHaveEvidence) return null;
+  const headingPath = candidate.sectionPath;
+  const approximateTokens =
+    candidate.tokenEstimate ?? approximateTokenCount(candidate.contentPreview);
+  const queryOverlapScore = queryOverlap(testCase.question, [
+    candidate.documentTitle,
+    candidate.sectionPath ?? "",
+    candidate.contentPreview,
+  ]);
+  const likelyIssues: string[] = [];
+  if (queryOverlapScore < 0.35) likelyIssues.push("synonym/paraphrase mismatch");
+  if (!headingPath || headingPath.split(">").length <= 1)
+    likelyIssues.push("heading path too generic");
+  if (approximateTokens > 700) likelyIssues.push("chunk too broad");
+  if (approximateTokens < 40) likelyIssues.push("chunk too narrow");
+  if (candidate.rank > DEFAULT_LIMIT) likelyIssues.push("expected evidence ranked outside top-k");
+
+  return {
+    documentTitle: candidate.documentTitle,
+    headingPath,
+    sectionTitle: headingPath
+      ? (headingPath
+          .split(">")
+          .map((part) => part.trim())
+          .at(-1) ?? null)
+      : null,
+    tokenEstimate: candidate.tokenEstimate,
+    approximateTokenCount: approximateTokens,
+    embeddingInputStructure: ["Document title", "Heading path", "chunk content"],
+    chunkShape:
+      approximateTokens > 700 ? "too_broad" : approximateTokens < 40 ? "too_narrow" : "reasonable",
+    likelyIssues,
+  };
+}
+
+function buildQueryAnalysis(
+  testCase: EvalCase,
+  representation: ChunkRepresentationObservation | null,
+): CaseComponentDiagnostics["queryAnalysis"] {
+  if (!representation || !testCase.expected.shouldHaveEvidence) return null;
+  const queryTokens = tokenize(testCase.question);
+  const overlap = queryOverlap(testCase.question, [
+    representation.documentTitle,
+    representation.headingPath ?? "",
+    representation.sectionTitle ?? "",
+  ]);
+  const likelyMismatch: string[] = [];
+  if (overlap < 0.35) likelyMismatch.push("omitted exact product terminology");
+  if (
+    specificTokens(testCase.question).length > 0 &&
+    representation.likelyIssues.includes("synonym/paraphrase mismatch")
+  ) {
+    likelyMismatch.push("specific terms are not directly represented in the expected heading path");
+  }
+  if (queryTokens.length <= 4) likelyMismatch.push("short query leaves little lexical support");
+
+  return {
+    queryTokens,
+    expectedChunkTokenOverlap: overlap,
+    expectedChunkContainsParaphraseTerms: overlap >= 0.35,
+    likelyMismatch,
+  };
+}
+
+function classifyFailureCause(input: {
+  expected: EvalExpected;
+  hybridSummary: ReturnType<typeof rankingSummary>;
+  vectorSummary: ReturnType<typeof rankingSummary>;
+  lexicalSummary: ReturnType<typeof rankingSummary>;
+  componentComparison: ComponentComparison;
+  chunkRepresentation: ChunkRepresentationObservation | null;
+  queryAnalysis: CaseComponentDiagnostics["queryAnalysis"];
+}): FailureCause | null {
+  if (
+    input.hybridSummary.expectedDocumentRank !== null &&
+    input.hybridSummary.expectedSectionRank !== null
+  ) {
+    return null;
+  }
+  if (
+    [
+      input.hybridSummary.top1Document,
+      input.vectorSummary.top1Document,
+      input.lexicalSummary.top1Document,
+    ].some((title) => titlesLikelyReferToSameDocument(input.expected.documentTitle, title))
+  ) {
+    return "fixture_expectation_issue";
+  }
+  if (input.componentComparison === "vector_succeeds_hybrid_fails") return "fusion_degradation";
+  if (
+    input.vectorSummary.expectedDocumentRank === null &&
+    input.lexicalSummary.expectedDocumentRank === null
+  ) {
+    return "vector_semantic_miss";
+  }
+  if (
+    input.vectorSummary.expectedDocumentRank !== null &&
+    input.lexicalSummary.expectedDocumentRank === null
+  ) {
+    return "lexical_miss";
+  }
+  if (
+    input.hybridSummary.expectedDocumentRank !== null &&
+    input.hybridSummary.expectedSectionRank === null
+  ) {
+    return "expected_section_granularity_issue";
+  }
+  if (input.chunkRepresentation?.likelyIssues.includes("chunk too broad")) {
+    return "chunk_representation_problem";
+  }
+  if ((input.queryAnalysis?.likelyMismatch.length ?? 0) > 0) return "mixed_uncertain";
+  return "mixed_uncertain";
+}
+
+function cosineSimilarity(left: number[], right: number[]): number {
+  let dot = 0;
+  let leftNorm = 0;
+  let rightNorm = 0;
+  for (let index = 0; index < Math.min(left.length, right.length); index += 1) {
+    dot += left[index] * right[index];
+    leftNorm += left[index] * left[index];
+    rightNorm += right[index] * right[index];
+  }
+  if (leftNorm === 0 || rightNorm === 0) return 0;
+  return dot / (Math.sqrt(leftNorm) * Math.sqrt(rightNorm));
+}
+
+function parseVector(value: unknown): number[] {
+  if (Array.isArray(value) && value.every((item) => typeof item === "number")) return value;
+  if (typeof value !== "string") throw new Error("Embedding vector is not a string");
+  const trimmed = value.trim().replace(/^\[/, "").replace(/\]$/, "");
+  if (!trimmed) return [];
+  return trimmed.split(",").map((part) => Number(part.trim()));
+}
+
+function approximateTokenCount(value: string): number {
+  return Math.max(1, Math.ceil(tokenize(value).length * 1.3));
+}
+
+function preview(value: string): string {
+  const compact = value.replace(/\s+/g, " ").trim();
+  return compact.length > 240 ? `${compact.slice(0, 240)}...` : compact;
+}
+
+function requireString(value: unknown, label: string): string {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`Expected ${label} to be a string`);
+  }
+  return value;
+}
+
 function largestGroup<T>(
   items: T[],
   keyFor: (item: T) => string,
@@ -1263,6 +2213,20 @@ function normalize(value: string | null | undefined): string {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
+}
+
+function titlesLikelyReferToSameDocument(
+  expectedTitle: string | null | undefined,
+  actualTitle: string | null | undefined,
+): boolean {
+  const expected = normalize(expectedTitle);
+  const actual = normalize(actualTitle);
+  if (!expected || !actual || expected === actual) return false;
+  const expectedModule = expected.match(/modulo\s+(\d+)/)?.[1];
+  const actualModule = actual.match(/modulo\s+(\d+)/)?.[1];
+  if (expectedModule && actualModule && expectedModule === actualModule) return true;
+  const expectedTerms = tokenize(expected).filter((token) => token !== "modulo");
+  return expectedTerms.length > 0 && expectedTerms.every((token) => actual.includes(token));
 }
 
 function nullableString(value: unknown): string | null {

@@ -53,6 +53,31 @@ Phase 9C also measures deterministic composite sufficiency signals offline:
 Composite strategies and parameter sweeps are benchmark experiments only. They must not be treated as
 a production evidence gate unless a later phase explicitly implements and validates one.
 
+Phase 9D extends the same benchmark with retrieval-component diagnostics for paraphrase failures.
+It compares current production hybrid retrieval with evaluation-only vector-only, lexical-only,
+vector-dominant RRF, and document-level vector aggregation views. These diagnostics read only the
+existing local Supabase corpus and write safe ranks, scores, and document/section labels to the
+ignored artifact. Raw embeddings, secrets, JWTs, service-role keys, and full chunk text must not be
+stored.
+
+The completed Phase 9D run found that the apparent paraphrase-positive failures were dominated by
+fixture expectation mismatches, not demonstrated production retrieval failures. Several paraphrase
+cases expected abbreviated document titles such as `Módulo 6: Homologaciones`, while the local corpus
+stores canonical titles such as
+`Módulo 6. Homologaciones - Faltas de asistencia - Consecutivo actas de grado y diplomas`. Relevant
+chunks existed for the observed cases, and RRF/fusion was neutral rather than harmful. No production
+retrieval, SQL, generation, chunking, embedding, or frontend change is justified from this run.
+Phase 9E must repair the evaluation contract, preferably by canonical source/document identifiers or
+canonical stored titles, before tuning retrieval behavior.
+
+The Phase 9D diagnostic output is intended to decide the next retrieval-improvement direction:
+
+- if vector-only beats hybrid, inspect lexical/RRF interference;
+- if vector-only also fails, inspect embedding input, chunk representation, or embedding model fit;
+- if document aggregation fixes document recall but not section recall, consider a two-stage
+  document-to-section retrieval design;
+- if only section granularity fails, avoid changing the embedding stack prematurely.
+
 ## Per-case fields
 
 - `id`
