@@ -32,8 +32,7 @@ Success:
       "section": "Solicitud posterior al inicio",
       "sourceUrl": "https://www.notion.so/..."
     }
-  ],
-  "queryId": "uuid"
+  ]
 }
 ```
 
@@ -48,7 +47,7 @@ Insufficient evidence:
 }
 ```
 
-The chat response does not expose internal chunk ids, vector scores, RRF ranks, raw embeddings, or hidden prompt details. Source URLs come from retrieved evidence, not from the model response.
+The chat response does not expose internal query ids, document UUIDs, chunk ids, vector scores, RRF ranks, raw embeddings, access scopes, or hidden prompt details. Source URLs come from retrieved evidence, not from the model response.
 
 Grounded generation uses OpenAI Responses API Structured Outputs with a strict JSON schema for `answer`, `sourceLabels`, and `insufficientEvidence`. The backend still validates the JSON, citation labels, and citation metadata after the API response.
 

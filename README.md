@@ -52,6 +52,20 @@ See `docs/ARCHITECTURE.md` for the detailed design and `docs/IMPLEMENTATION_PLAN
 
 Copy `.env.example` to `.env.local` for the web app and configure equivalent Supabase secrets for Edge Functions.
 
+For the local pilot UI, `.env.local` must include these browser-safe values:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `NEXT_PUBLIC_CHAT_FUNCTION_URL`
+
+Run the web app with:
+
+```bash
+pnpm dev
+```
+
+The UI uses Supabase Auth email/password sign-in, calls the chat Edge Function with the authenticated user JWT, renders only `answer`, `sources`/`citations`, and `insufficient_evidence`, and keeps feedback buttons local to the current browser session until a dedicated safe feedback endpoint is added. Do not expose `SUPABASE_SERVICE_ROLE_KEY` to the web app.
+
 ## Important
 
 The files under `supabase/functions/` are a strong implementation scaffold, not a claim that deployment is already configured. The Notion content-normalization path varies with the exact structure of your workspace; Phase 2 in `CODEX_TASKS.md` instructs Codex to finish and test that adapter against your selected Notion schema.

@@ -14,6 +14,10 @@
 - [ ] Set `OPENAI_API_KEY`, generation model, and embedding model as server secrets.
 - [ ] Deploy the chat function.
 - [ ] Configure the web app's public Supabase URL/anon key and chat function URL.
+- [ ] For local web testing, set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `NEXT_PUBLIC_CHAT_FUNCTION_URL` in `.env.local`.
+- [ ] Run `pnpm dev` and sign in with a pilot Supabase Auth user that has an allowed row in `public.user_access_scopes`.
+- [ ] Validate the pilot chat flow with one supported question and one unsupported question.
+- [ ] Treat the current web feedback buttons as session-local only until a dedicated safe feedback API is added.
 - [ ] Run an initial manual crawl/sync of the pilot knowledge tree (to be implemented in Phase 2).
 - [ ] Replace fixture evaluation source keys with real document IDs/keys and expand to 30+ cases.
 - [ ] Run production security gate before broader internal access.

@@ -7,88 +7,352 @@
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  color: #171717;
-  background: #f7f7f5;
+  color: #1d1f23;
+  background: #f6f5f2;
 }
+
 * {
   box-sizing: border-box;
 }
+
 body {
   margin: 0;
 }
+
 a {
-  color: inherit;
+  color: #235789;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  border: 0;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 58px;
+  padding: 10px max(20px, calc((100vw - 1040px) / 2));
+  border-bottom: 1px solid #ddd8ce;
+  background: rgba(246, 245, 242, 0.96);
+}
+
+.topbar div {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.topbar span {
+  overflow: hidden;
+  color: #62666d;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .shell {
-  width: min(880px, calc(100% - 32px));
+  width: min(1040px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 64px 0;
+  padding: 28px 0 40px;
 }
-.header {
-  margin-bottom: 28px;
+
+.intro {
+  margin-bottom: 18px;
 }
+
 .eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  margin: 0 0 8px;
+  color: #6b5e36;
   font-size: 12px;
   font-weight: 700;
-  color: #666;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
+
 h1 {
-  font-size: clamp(32px, 6vw, 56px);
-  line-height: 1;
-  margin: 10px 0;
-  letter-spacing: -0.04em;
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.15;
+  letter-spacing: 0;
 }
-.subtle {
-  color: #666;
+
+.muted,
+.emptyState {
+  color: #62666d;
 }
-.chatCard {
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 18px;
-  padding: 20px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+
+.panel,
+.chatSurface {
+  border: 1px solid #ddd8ce;
+  border-radius: 8px;
+  background: #fff;
 }
-.answer {
-  line-height: 1.6;
+
+.panel {
+  width: min(480px, calc(100% - 32px));
+  margin: 64px auto;
+  padding: 24px;
 }
-.sources {
-  border-top: 1px solid #eee;
-  padding-top: 14px;
-  margin-top: 18px;
-  font-size: 14px;
+
+.authPanel {
+  display: grid;
+  gap: 22px;
 }
-.sources ul {
-  padding-left: 20px;
-}
-.error {
-  color: #a00;
-}
+
+.authForm,
 .composer {
   display: grid;
   gap: 12px;
-  margin-top: 18px;
 }
+
+.authForm label {
+  display: grid;
+  gap: 7px;
+  color: #3b3f45;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+input,
 textarea {
   width: 100%;
+  border: 1px solid #c9c3b8;
+  border-radius: 6px;
+  background: #fff;
+  color: #1d1f23;
+}
+
+input {
+  height: 42px;
+  padding: 0 12px;
+}
+
+textarea {
+  min-height: 92px;
+  max-height: 260px;
   resize: vertical;
-  padding: 14px;
-  border: 1px solid #ccc;
-  border-radius: 12px;
-  font: inherit;
+  padding: 12px;
+  line-height: 1.45;
 }
+
 button {
-  justify-self: end;
-  padding: 10px 16px;
-  border: 0;
-  border-radius: 10px;
-  background: #171717;
-  color: white;
-  font-weight: 700;
+  min-height: 38px;
+  border-radius: 6px;
+  background: #1f2933;
+  color: #fff;
   cursor: pointer;
+  font-weight: 700;
 }
+
 button:disabled {
-  opacity: 0.45;
   cursor: default;
+  opacity: 0.5;
+}
+
+.secondaryButton {
+  min-width: 70px;
+  padding: 0 14px;
+  background: #e9e4d9;
+  color: #1d1f23;
+}
+
+.authForm button,
+.composer button {
+  justify-self: end;
+  min-width: 112px;
+  padding: 0 16px;
+}
+
+.chatSurface {
+  display: grid;
+  grid-template-rows: minmax(360px, 1fr) auto auto;
+  min-height: 620px;
+  overflow: hidden;
+}
+
+.transcript {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.emptyState {
+  align-self: center;
+  justify-self: center;
+  max-width: 420px;
+  margin: 96px auto;
+  text-align: center;
+}
+
+.turn {
+  display: grid;
+  gap: 10px;
+}
+
+.questionBubble,
+.answerCard {
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.questionBubble {
+  justify-self: end;
+  width: min(720px, 90%);
+  background: #e9f0ee;
+}
+
+.questionBubble span,
+.answerCard > span {
+  display: block;
+  margin-bottom: 6px;
+  color: #62666d;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.questionBubble p,
+.answerCard p {
+  margin: 0;
+  line-height: 1.58;
+  white-space: pre-wrap;
+}
+
+.answerCard {
+  width: min(780px, 94%);
+  border: 1px solid #e2ded6;
+  background: #fffdfa;
+}
+
+.answerCard.insufficient {
+  border-color: #dccd9c;
+  background: #fffaf0;
+}
+
+.sources {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #e8e2d8;
+}
+
+.sources strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.sources ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.sources small {
+  display: block;
+  margin-top: 2px;
+  color: #62666d;
+  line-height: 1.4;
+}
+
+.feedback {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.feedback button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid #d8d2c7;
+  background: #fff;
+  color: #1d1f23;
+  font-size: 13px;
+}
+
+.feedback .selectedFeedback {
+  border-color: #235789;
+  background: #e8f1f8;
+}
+
+.composer {
+  border-top: 1px solid #e2ded6;
+  padding: 16px;
+  background: #fbfaf7;
+}
+
+.error {
+  margin: 0 16px 12px;
+  border: 1px solid #e5b5a6;
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: #fff4ef;
+  color: #8a2f18;
+}
+
+.authForm .error {
+  margin: 0;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .topbar {
+    align-items: flex-start;
+    padding: 10px 16px;
+  }
+
+  .topbar div {
+    display: grid;
+    gap: 2px;
+  }
+
+  .shell {
+    width: min(100% - 20px, 1040px);
+    padding-top: 18px;
+  }
+
+  h1 {
+    font-size: 24px;
+  }
+
+  .chatSurface {
+    min-height: calc(100vh - 172px);
+  }
+
+  .transcript {
+    padding: 14px;
+  }
+
+  .questionBubble,
+  .answerCard {
+    width: 100%;
+  }
+
+  .composer {
+    padding: 12px;
+  }
 }
