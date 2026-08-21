@@ -37,4 +37,4 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.sync-notion-page]
-verify_jwt = true
+verify_jwt = false

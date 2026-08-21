@@ -22,10 +22,14 @@
 - Log identifiers/metrics rather than full confidential text where possible.
 - Rate limit authenticated chat calls if abuse becomes possible.
 - `sync-notion-page` is backend/admin-only. Browser clients and normal authenticated users must
-  never call it directly; direct HTTP invocation requires the Supabase service-role credential, which
-  remains server-side only.
+  never call it directly. Direct HTTP invocation uses Supabase's current secret-key model with an
+  `apikey: sb_secret_...` header and application-level verification against the hosted
+  `SUPABASE_SECRET_KEYS` registry. Secret keys remain server-side only.
 - Notion webhooks may trigger sync only after raw-body signature verification, then through the
   trusted internal sync path rather than a browser-accessible workflow.
+- Internal privileged Supabase database operations still use the runtime server-side Supabase client
+  credential. This is separate from direct caller authorization and must never be exposed to browser
+  code.
 
 ## Production gate
 

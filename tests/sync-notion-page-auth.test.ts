@@ -13,26 +13,33 @@ import {
 } from "../supabase/functions/_shared/sync-notion-page.ts";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const serviceRoleToken = jwt({ role: "service_role" });
+const secretKey = "sb_secret_valid_sync_key";
+const wrongSecretKey = "sb_secret_wrong_sync_key";
+const publishableKey = "sb_publishable_public_key";
 const anonToken = jwt({ role: "anon" });
 const userToken = jwt({ role: "authenticated", sub: "user-1" });
+const serviceRoleToken = jwt({ role: "service_role" });
 
 function readText(path: string): string {
   return readFileSync(join(root, path), "utf8");
 }
 
-function request(auth?: string, body = '{"pageId":"page-1"}'): Request {
+function request(input: { auth?: string; apikey?: string; body?: string } = {}): Request {
+  const headers = new Headers();
+  if (input.auth !== undefined) headers.set("Authorization", input.auth);
+  if (input.apikey !== undefined) headers.set("apikey", input.apikey);
+
   return new Request("https://functions.local/sync-notion-page", {
     method: "POST",
-    ...(auth ? { headers: { Authorization: auth } } : {}),
-    body,
+    headers,
+    body: input.body ?? '{"pageId":"page-1"}',
   });
 }
 
-function env(token = serviceRoleToken) {
+function env(rawSecretKeys = JSON.stringify({ default: secretKey })) {
   return {
     get(name: string) {
-      return name === "SUPABASE_SERVICE_ROLE_KEY" ? token : undefined;
+      return name === "SUPABASE_SECRET_KEYS" ? rawSecretKeys : undefined;
     },
   };
 }
@@ -86,25 +93,28 @@ function dependencies() {
 }
 
 describe("sync-notion-page trusted caller authorization", () => {
-  it("rejects missing Authorization before any sync side effects", async () => {
+  it("rejects missing apikey before any sync side effects", async () => {
     const { calls, deps } = dependencies();
-    const response = await handleSyncNotionPageRequest(request(undefined, "{not-json"), deps);
+    const response = await handleSyncNotionPageRequest(request({ body: "{not-json" }), deps);
 
     expect(response.status).toBe(401);
     expect(calls).toEqual({ supabase: 0, notion: 0, openai: 0, reconcile: 0 });
   });
 
-  it("rejects malformed bearer tokens with 401", async () => {
+  it("rejects empty apikey with 401", async () => {
     const { calls, deps } = dependencies();
-    const response = await handleSyncNotionPageRequest(request("Bearer not-a-jwt"), deps);
+    const response = await handleSyncNotionPageRequest(request({ apikey: "   " }), deps);
 
     expect(response.status).toBe(401);
     expect(calls).toEqual({ supabase: 0, notion: 0, openai: 0, reconcile: 0 });
   });
 
-  it("rejects tokens without the Bearer scheme with 401", async () => {
+  it("rejects malformed apikey values with 401", async () => {
     const { calls, deps } = dependencies();
-    const response = await handleSyncNotionPageRequest(request(serviceRoleToken), deps);
+    const response = await handleSyncNotionPageRequest(
+      request({ apikey: "not-a-secret-key" }),
+      deps,
+    );
 
     expect(response.status).toBe(401);
     expect(calls).toEqual({ supabase: 0, notion: 0, openai: 0, reconcile: 0 });
@@ -112,29 +122,86 @@ describe("sync-notion-page trusted caller authorization", () => {
 
   it("does not parse the request body before authorization succeeds", async () => {
     const { calls, deps } = dependencies();
-    const response = await handleSyncNotionPageRequest(request(`Bearer ${userToken}`, "{"), deps);
+    const response = await handleSyncNotionPageRequest(
+      request({ auth: `Bearer ${userToken}`, body: "{" }),
+      deps,
+    );
 
     expect(response.status).toBe(403);
     expect(calls).toEqual({ supabase: 0, notion: 0, openai: 0, reconcile: 0 });
   });
 
-  it("rejects anon JWTs as valid but unauthorized callers", () => {
-    const result = authorizeSyncRequest(request(`Bearer ${anonToken}`), env());
+  it("rejects anon JWTs without trusting claims", () => {
+    const result = authorizeSyncRequest(request({ auth: `Bearer ${anonToken}` }), env());
 
     expect(result).toMatchObject({ ok: false, status: 403, code: "forbidden" });
   });
 
   it("rejects normal authenticated user JWTs with 403", async () => {
     const { calls, deps } = dependencies();
-    const response = await handleSyncNotionPageRequest(request(`Bearer ${userToken}`), deps);
+    const response = await handleSyncNotionPageRequest(
+      request({ auth: `Bearer ${userToken}` }),
+      deps,
+    );
 
     expect(response.status).toBe(403);
     expect(calls).toEqual({ supabase: 0, notion: 0, openai: 0, reconcile: 0 });
   });
 
-  it("accepts trusted service-role invocation", async () => {
+  it("rejects publishable keys with 403", async () => {
     const { calls, deps } = dependencies();
-    const response = await handleSyncNotionPageRequest(request(`Bearer ${serviceRoleToken}`), deps);
+    const response = await handleSyncNotionPageRequest(request({ apikey: publishableKey }), deps);
+
+    expect(response.status).toBe(403);
+    expect(calls).toEqual({ supabase: 0, notion: 0, openai: 0, reconcile: 0 });
+  });
+
+  it("rejects wrong secret keys with 403", async () => {
+    const { calls, deps } = dependencies();
+    const response = await handleSyncNotionPageRequest(request({ apikey: wrongSecretKey }), deps);
+
+    expect(response.status).toBe(403);
+    expect(calls).toEqual({ supabase: 0, notion: 0, openai: 0, reconcile: 0 });
+  });
+
+  it("fails closed when SUPABASE_SECRET_KEYS is missing", async () => {
+    const { calls, deps } = dependencies();
+    deps.env = { get: () => undefined };
+    const response = await handleSyncNotionPageRequest(request({ apikey: secretKey }), deps);
+    const payload = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(500);
+    expect(payload).toEqual({
+      error: {
+        code: "server_misconfigured",
+        message: "Sync authorization unavailable",
+      },
+    });
+    expect(JSON.stringify(payload)).not.toContain(secretKey);
+    expect(calls).toEqual({ supabase: 0, notion: 0, openai: 0, reconcile: 0 });
+  });
+
+  it("fails closed when SUPABASE_SECRET_KEYS is malformed", async () => {
+    const { calls, deps } = dependencies();
+    deps.env = env("{not-json");
+    const response = await handleSyncNotionPageRequest(request({ apikey: secretKey }), deps);
+
+    expect(response.status).toBe(500);
+    expect(calls).toEqual({ supabase: 0, notion: 0, openai: 0, reconcile: 0 });
+  });
+
+  it("fails closed when SUPABASE_SECRET_KEYS has no usable secret key", async () => {
+    const { calls, deps } = dependencies();
+    deps.env = env(JSON.stringify({ default: publishableKey }));
+    const response = await handleSyncNotionPageRequest(request({ apikey: secretKey }), deps);
+
+    expect(response.status).toBe(500);
+    expect(calls).toEqual({ supabase: 0, notion: 0, openai: 0, reconcile: 0 });
+  });
+
+  it("accepts trusted secret-key invocation", async () => {
+    const { calls, deps } = dependencies();
+    const response = await handleSyncNotionPageRequest(request({ apikey: secretKey }), deps);
     const payload = (await response.json()) as Record<string, unknown>;
 
     expect(response.status).toBe(200);
@@ -145,12 +212,22 @@ describe("sync-notion-page trusted caller authorization", () => {
   it("does not rescue malformed JSON after trusted authorization", async () => {
     const { calls, deps } = dependencies();
     const response = await handleSyncNotionPageRequest(
-      request(`Bearer ${serviceRoleToken}`, "{not-json"),
+      request({ apikey: secretKey, body: "{not-json" }),
       deps,
     );
 
     expect(response.status).toBe(400);
     expect(calls).toEqual({ supabase: 0, notion: 0, openai: 0, reconcile: 0 });
+  });
+
+  it("does not expose service-role or secret keys in rejected responses", async () => {
+    const { deps } = dependencies();
+    const response = await handleSyncNotionPageRequest(request({ apikey: wrongSecretKey }), deps);
+    const text = await response.text();
+
+    expect(text).not.toContain(secretKey);
+    expect(text).not.toContain(wrongSecretKey);
+    expect(text).not.toContain(serviceRoleToken);
   });
 });
 
@@ -175,6 +252,13 @@ describe("sync-notion-page internal webhook path", () => {
     expect(source).not.toContain(
       'Authorization: `Bearer ${requiredEnv("SUPABASE_SERVICE_ROLE_KEY")}`',
     );
+  });
+
+  it("keeps chat JWT verification enabled and disables it only for direct sync", () => {
+    const config = readText("supabase/config.toml");
+
+    expect(config).toMatch(/\[functions\.chat\]\s+verify_jwt = true/);
+    expect(config).toMatch(/\[functions\.sync-notion-page\]\s+verify_jwt = false/);
   });
 });
 

@@ -64,10 +64,18 @@ Errors use a stable `{ "error": { "code": "...", "message": "..." } }` envelope 
 
 Server-to-server/admin only.
 
-Direct HTTP invocation requires `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>`. Missing or
-malformed authentication returns `401`; valid non-service-role JWTs, including normal authenticated
-user tokens, return `403`. Browser clients must never call this endpoint, and CORS must not be
-treated as the authorization control.
+Direct HTTP invocation requires the current Supabase secret-key model:
+
+```http
+apikey: sb_secret_...
+```
+
+The deployed function has platform JWT verification disabled for this endpoint so it can accept
+backend API-key calls. The function performs its own constant-time application authorization against
+the hosted `SUPABASE_SECRET_KEYS` registry before parsing the request body or running sync side
+effects. Missing or malformed credentials return `401`; publishable keys, wrong secret keys, and
+normal authenticated user JWTs return `403`. Browser clients must never call this endpoint, and CORS
+must not be treated as the authorization control.
 
 Request:
 

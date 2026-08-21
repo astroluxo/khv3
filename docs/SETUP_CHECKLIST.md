@@ -13,6 +13,8 @@
 - [ ] Subscribe to page/content lifecycle events needed by the pilot.
 - [ ] Set `OPENAI_API_KEY`, generation model, and embedding model as server secrets.
 - [ ] Deploy the chat function.
+- [ ] For direct manual sync calls, use the staging Supabase secret key only from a trusted backend
+      environment and send it as `apikey: sb_secret_...`; never put it in browser code or chat.
 - [ ] Configure the web app's public Supabase URL/anon key and chat function URL.
 - [ ] For local web testing, set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `NEXT_PUBLIC_CHAT_FUNCTION_URL` in `.env.local`.
 - [ ] Run `pnpm dev` and sign in with a pilot Supabase Auth user that has an allowed row in `public.user_access_scopes`.

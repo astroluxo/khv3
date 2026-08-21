@@ -52,7 +52,12 @@ export type SyncNotionPageDependencies = {
 
 type SyncAuthResult =
   | { ok: true }
-  | { ok: false; status: 401 | 403; code: "unauthorized" | "forbidden"; message: string };
+  | {
+      ok: false;
+      status: 401 | 403 | 500;
+      code: "unauthorized" | "forbidden" | "server_misconfigured";
+      message: string;
+    };
 
 class SupabaseSyncRepository implements SyncRepository {
   constructor(private readonly supabase: SupabaseSyncClient) {}
@@ -143,9 +148,20 @@ export function authorizeSyncRequest(
   req: Pick<Request, "headers">,
   env: EnvReader = runtimeEnv(),
 ): SyncAuthResult {
+  const suppliedApiKey = (req.headers.get("apikey") ?? "").trim();
   const auth = req.headers.get("Authorization") ?? "";
-  const token = bearerToken(auth);
-  if (!token) {
+
+  if (!suppliedApiKey) {
+    const token = bearerToken(auth);
+    if (token && looksLikeJwt(token)) {
+      return {
+        ok: false,
+        status: 403,
+        code: "forbidden",
+        message: "Trusted backend credentials required",
+      };
+    }
+
     return {
       ok: false,
       status: 401,
@@ -154,14 +170,7 @@ export function authorizeSyncRequest(
     };
   }
 
-  const serviceRoleKey = env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!serviceRoleKey) {
-    throw new Error("Missing required environment variable: SUPABASE_SERVICE_ROLE_KEY");
-  }
-
-  if (constantTimeEqual(token, serviceRoleKey)) return { ok: true };
-
-  if (looksLikeJwt(token)) {
+  if (suppliedApiKey.startsWith("sb_publishable_")) {
     return {
       ok: false,
       status: 403,
@@ -170,11 +179,32 @@ export function authorizeSyncRequest(
     };
   }
 
+  if (!suppliedApiKey.startsWith("sb_secret_")) {
+    return {
+      ok: false,
+      status: 401,
+      code: "unauthorized",
+      message: "Invalid authentication",
+    };
+  }
+
+  const configuredKeys = readConfiguredSecretKeys(env);
+  if (configuredKeys.length === 0) {
+    return {
+      ok: false,
+      status: 500,
+      code: "server_misconfigured",
+      message: "Sync authorization unavailable",
+    };
+  }
+
+  if (matchesAnySecretKey(suppliedApiKey, configuredKeys)) return { ok: true };
+
   return {
     ok: false,
-    status: 401,
-    code: "unauthorized",
-    message: "Invalid authentication",
+    status: 403,
+    code: "forbidden",
+    message: "Trusted backend credentials required",
   };
 }
 
@@ -302,6 +332,31 @@ function constantTimeEqual(left: string, right: string): boolean {
     diff |= (leftBytes[index] ?? 0) ^ (rightBytes[index] ?? 0);
   }
   return diff === 0;
+}
+
+function matchesAnySecretKey(suppliedApiKey: string, configuredKeys: string[]): boolean {
+  let matched = false;
+  for (const configuredKey of configuredKeys) {
+    matched = constantTimeEqual(suppliedApiKey, configuredKey) || matched;
+  }
+  return matched;
+}
+
+function readConfiguredSecretKeys(env: EnvReader): string[] {
+  const raw = env.get("SUPABASE_SECRET_KEYS");
+  if (!raw) return [];
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+
+  if (!isRecord(parsed)) return [];
+  return Object.values(parsed).filter(
+    (value): value is string => typeof value === "string" && value.trim().startsWith("sb_secret_"),
+  );
 }
 
 function looksLikeJwt(value: string): boolean {
