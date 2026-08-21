@@ -145,7 +145,7 @@ limit (select limit_count from params);
 $$;
 
 create index if not exists chunks_embedding_hnsw_idx
-  on public.chunks using hnsw (embedding vector_cosine_ops)
+  on public.chunks using hnsw (embedding extensions.vector_cosine_ops)
   where embedding is not null;
 
 comment on function public.hybrid_search(

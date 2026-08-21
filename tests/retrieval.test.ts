@@ -432,6 +432,6 @@ describe("hybrid retrieval SQL contract", () => {
   });
 
   it("adds the HNSW cosine index for semantic retrieval", () => {
-    expect(migrationSql).toContain("using hnsw (embedding vector_cosine_ops)");
+    expect(migrationSql).toContain("using hnsw (embedding extensions.vector_cosine_ops)");
   });
 });
