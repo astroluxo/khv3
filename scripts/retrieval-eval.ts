@@ -19,12 +19,26 @@ const DEFAULT_OUTPUT_PATH = ".supabase/retrieval-eval-phase9.json";
 const DEFAULT_LIMIT = 6;
 const DEFAULT_SUPPORTING_CHUNK_OVERLAP = 0.35;
 
+export const CANONICAL_DOCUMENT_REGISTRY = {
+  "class-limitless-academica-matricula": "Módulo 10: Matrícula",
+  "class-limitless-academica-homologaciones":
+    "Módulo 6. Homologaciones - Faltas de asistencia - Consecutivo actas de grado y diplomas",
+  "class-limitless-academica-calificacion": "Módulo 11: Calificación",
+  "class-limitless-seguridad": "Módulo 3. Seguridad",
+  "class-limitless-financiera-facturacion": "Módulo 5: Procesos/Facturación",
+  "class-limitless-configuraciones-parametros": "Módulo 1. Parámetros / Parámetros",
+} as const;
+
+export type CanonicalDocumentKey = keyof typeof CANONICAL_DOCUMENT_REGISTRY;
+
 type EvalExpected = {
-  documentTitle: string | null;
+  documentKey?: CanonicalDocumentKey | null;
+  documentTitle?: string | null;
   area: string | null;
   sectionContains: string | null;
   shouldHaveEvidence: boolean;
   nearNegative?: boolean;
+  relatedDocumentKey?: CanonicalDocumentKey | null;
   relatedDocumentTitle?: string | null;
   unsupportedRationale?: string | null;
 };
@@ -276,6 +290,7 @@ export type BenchmarkArtifact = {
   generatedAt: string;
   fixturePath: string;
   paraphraseFixturePath: string;
+  canonicalDocumentRegistry: Record<CanonicalDocumentKey, string>;
   retrievalLimit: number;
   openAIQueryEmbeddingRequests: number;
   summary: RetrievalSummary;
@@ -531,27 +546,45 @@ export function validateFixtureCases(
     if (typeof expected.shouldHaveEvidence !== "boolean") {
       throw new Error(`Retrieval fixture case ${item.id} has invalid shouldHaveEvidence`);
     }
-    const documentTitle = nullableString(expected.documentTitle);
+    if ("documentTitle" in expected) {
+      throw new Error(
+        `Retrieval fixture case ${item.id} must use documentKey instead of documentTitle`,
+      );
+    }
+    if ("relatedDocumentTitle" in expected) {
+      throw new Error(
+        `Retrieval fixture case ${item.id} must use relatedDocumentKey instead of relatedDocumentTitle`,
+      );
+    }
+    const documentKey = nullableDocumentKey(expected.documentKey, item.id, "documentKey");
+    const documentTitle = documentKey ? CANONICAL_DOCUMENT_REGISTRY[documentKey] : null;
     const area = nullableString(expected.area);
     const sectionContains = nullableString(expected.sectionContains);
     const nearNegative = expected.nearNegative === true;
-    const relatedDocumentTitle = nullableString(expected.relatedDocumentTitle);
+    const relatedDocumentKey = nullableDocumentKey(
+      expected.relatedDocumentKey,
+      item.id,
+      "relatedDocumentKey",
+    );
+    const relatedDocumentTitle = relatedDocumentKey
+      ? CANONICAL_DOCUMENT_REGISTRY[relatedDocumentKey]
+      : null;
     const unsupportedRationale = nullableString(expected.unsupportedRationale);
 
     if (expected.shouldHaveEvidence) {
-      if (!documentTitle || !area || !sectionContains) {
-        throw new Error(`Positive fixture case ${item.id} must include document, area, section`);
+      if (!documentKey || !documentTitle || !area || !sectionContains) {
+        throw new Error(`Positive fixture case ${item.id} must include documentKey, area, section`);
       }
       if (nearNegative) {
         throw new Error(`Positive fixture case ${item.id} must not be marked nearNegative`);
       }
     } else {
-      if (documentTitle !== null || sectionContains !== null) {
-        throw new Error(`Negative fixture case ${item.id} must use null document and section`);
+      if (documentKey !== null || sectionContains !== null) {
+        throw new Error(`Negative fixture case ${item.id} must use null documentKey and section`);
       }
       if (nearNegative && (!area || !relatedDocumentTitle || !unsupportedRationale)) {
         throw new Error(
-          `Near-negative fixture case ${item.id} must include area, relatedDocumentTitle, and unsupportedRationale`,
+          `Near-negative fixture case ${item.id} must include area, relatedDocumentKey, and unsupportedRationale`,
         );
       }
       if (!nearNegative && (relatedDocumentTitle !== null || unsupportedRationale !== null)) {
@@ -566,16 +599,43 @@ export function validateFixtureCases(
       question: item.question,
       suite,
       expected: {
+        documentKey,
         documentTitle,
         area,
         sectionContains,
         shouldHaveEvidence: expected.shouldHaveEvidence,
         ...(nearNegative ? { nearNegative } : {}),
+        ...(relatedDocumentKey ? { relatedDocumentKey } : {}),
         ...(relatedDocumentTitle ? { relatedDocumentTitle } : {}),
         ...(unsupportedRationale ? { unsupportedRationale } : {}),
       },
     };
   });
+}
+
+export function validateCanonicalDocumentRegistry(corpusTitles?: string[]): void {
+  const entries = Object.entries(CANONICAL_DOCUMENT_REGISTRY);
+  const keys = new Set<string>();
+  const normalizedTitles = new Set<string>();
+
+  for (const [key, title] of entries) {
+    if (keys.has(key)) throw new Error(`Duplicate canonical document key: ${key}`);
+    keys.add(key);
+    const normalizedTitle = normalize(title);
+    if (normalizedTitles.has(normalizedTitle)) {
+      throw new Error(`Duplicate canonical document title in registry: ${title}`);
+    }
+    normalizedTitles.add(normalizedTitle);
+  }
+
+  if (!corpusTitles) return;
+
+  const corpusTitleSet = new Set(corpusTitles.map((title) => normalize(title)));
+  for (const [key, title] of entries) {
+    if (!corpusTitleSet.has(normalize(title))) {
+      throw new Error(`Canonical document ${key} is missing from the local corpus: ${title}`);
+    }
+  }
 }
 
 export function evaluateCase(
@@ -1119,6 +1179,7 @@ export async function runRetrievalBenchmark(options: {
     supabaseUrl: required(options.env.SUPABASE_URL, "SUPABASE_URL"),
     serviceRoleKey: required(options.env.SUPABASE_SERVICE_ROLE_KEY, "SUPABASE_SERVICE_ROLE_KEY"),
   }).listEligibleChunks();
+  validateCanonicalDocumentRegistry(diagnosticChunks.map((chunk) => chunk.documentTitle));
 
   const observations: CaseObservation[] = [];
   for (const testCase of cases) {
@@ -1154,6 +1215,7 @@ export async function runRetrievalBenchmark(options: {
     generatedAt: (options.now?.() ?? new Date()).toISOString(),
     fixturePath: options.fixturePath,
     paraphraseFixturePath: options.paraphraseFixturePath,
+    canonicalDocumentRegistry: { ...CANONICAL_DOCUMENT_REGISTRY },
     retrievalLimit: DEFAULT_LIMIT,
     openAIQueryEmbeddingRequests: embeddingClient.requestCount,
     summary: summarizeObservations(originalObservations),
@@ -2236,6 +2298,26 @@ function nullableString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function nullableDocumentKey(
+  value: unknown,
+  caseId: string,
+  fieldName: "documentKey" | "relatedDocumentKey",
+): CanonicalDocumentKey | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`Retrieval fixture case ${caseId} has invalid ${fieldName}`);
+  }
+  const key = value.trim();
+  if (!isCanonicalDocumentKey(key)) {
+    throw new Error(`Retrieval fixture case ${caseId} references unknown ${fieldName}: ${key}`);
+  }
+  return key;
+}
+
+function isCanonicalDocumentKey(value: string): value is CanonicalDocumentKey {
+  return Object.prototype.hasOwnProperty.call(CANONICAL_DOCUMENT_REGISTRY, value);
+}
+
 function decision(
   strategyId: StrategyId | CompositeStrategyId,
   label: string,
@@ -2306,6 +2388,21 @@ function printSummary(artifact: BenchmarkArtifact): void {
   console.log(`Top-k document recall: ${percent(summary.positiveTopKDocumentRecall)}`);
   console.log(`Top-1 section accuracy: ${percent(summary.positiveTop1SectionAccuracy)}`);
   console.log(`Section hit within top-k: ${percent(summary.positiveSectionHitRate)}`);
+  console.log(
+    `Paraphrase Top-1 document accuracy: ${percent(paraphrases.positiveTop1DocumentAccuracy)}`,
+  );
+  console.log(
+    `Paraphrase Top-3 document recall: ${percent(paraphrases.positiveTop3DocumentRecall)}`,
+  );
+  console.log(
+    `Paraphrase Top-k document recall: ${percent(paraphrases.positiveTopKDocumentRecall)}`,
+  );
+  console.log(
+    `Paraphrase Top-1 section accuracy: ${percent(paraphrases.positiveTop1SectionAccuracy)}`,
+  );
+  console.log(
+    `Paraphrase section hit within top-k: ${percent(paraphrases.positiveSectionHitRate)}`,
+  );
   console.log(`Negative zero-evidence rate: ${percent(summary.negativeZeroEvidenceRate)}`);
   console.log(
     `Negative irrelevant-evidence rate: ${percent(summary.negativeIrrelevantEvidenceRate)}`,

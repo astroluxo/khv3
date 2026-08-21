@@ -3,568 +3,568 @@
     "id": "phase8-academic-matricula-001",
     "question": "Que debo revisar antes de matricular a un estudiante?",
     "expected": {
-      "documentTitle": "Módulo 10: Matrícula",
       "area": "Académica",
       "sectionContains": "Matrícula estudiantil",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-academica-matricula"
     }
   },
   {
     "id": "phase8-academic-matricula-002",
     "question": "Que ocurre si al matricular hay choques de horario?",
     "expected": {
-      "documentTitle": "Módulo 10: Matrícula",
       "area": "Académica",
       "sectionContains": "Matrícula estudiantil",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-academica-matricula"
     }
   },
   {
     "id": "phase8-academic-matricula-003",
     "question": "De donde salen los cursos, fechas, aulas y profesores disponibles para matricula?",
     "expected": {
-      "documentTitle": "Módulo 10: Matrícula",
       "area": "Académica",
       "sectionContains": "Matrícula estudiantil",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-academica-matricula"
     }
   },
   {
     "id": "phase8-academic-homologaciones-001",
     "question": "Para que sirve la Homologación de cursos entre programas academicos?",
     "expected": {
-      "documentTitle": "Módulo 6. Homologaciones - Faltas de asistencia - Consecutivo actas de grado y diplomas",
       "area": "Académica",
       "sectionContains": "Homologación de cursos",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-academica-homologaciones"
     }
   },
   {
     "id": "phase8-academic-homologaciones-002",
     "question": "Como se crean equivalencias de asignaturas entre diferentes programas?",
     "expected": {
-      "documentTitle": "Módulo 6. Homologaciones - Faltas de asistencia - Consecutivo actas de grado y diplomas",
       "area": "Académica",
       "sectionContains": "Homologación de cursos",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-academica-homologaciones"
     }
   },
   {
     "id": "phase8-academic-faltas-001",
     "question": "Como se parametrizan las faltas de asistencia para reprobar cursos?",
     "expected": {
-      "documentTitle": "Módulo 6. Homologaciones - Faltas de asistencia - Consecutivo actas de grado y diplomas",
       "area": "Académica",
       "sectionContains": "Faltas de asistencia",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-academica-homologaciones"
     }
   },
   {
     "id": "phase8-academic-actas-001",
     "question": "Como se configura el consecutivo de actas de grado y diplomas?",
     "expected": {
-      "documentTitle": "Módulo 6. Homologaciones - Faltas de asistencia - Consecutivo actas de grado y diplomas",
       "area": "Académica",
       "sectionContains": "Consecutivo Actas",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-academica-homologaciones"
     }
   },
   {
     "id": "phase8-academic-calificacion-001",
     "question": "Que procesos se realizan en la opcion Calificar estudiantes?",
     "expected": {
-      "documentTitle": "Módulo 11: Calificación",
       "area": "Académica",
       "sectionContains": "Calificar estudiantes",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-academica-calificacion"
     }
   },
   {
     "id": "phase8-academic-calificacion-002",
     "question": "Que debo tener presente para calificar a un estudiante?",
     "expected": {
-      "documentTitle": "Módulo 11: Calificación",
       "area": "Académica",
       "sectionContains": "Calificar estudiantes",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-academica-calificacion"
     }
   },
   {
     "id": "phase8-academic-calificacion-003",
     "question": "Como se registra el control de asistencia de cada estudiante?",
     "expected": {
-      "documentTitle": "Módulo 11: Calificación",
       "area": "Académica",
       "sectionContains": "Control de asistencias",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-academica-calificacion"
     }
   },
   {
     "id": "phase8-academic-calificacion-004",
     "question": "Que se registra en la pestana de anotaciones del estudiante?",
     "expected": {
-      "documentTitle": "Módulo 11: Calificación",
       "area": "Académica",
       "sectionContains": "Anotaciones",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-academica-calificacion"
     }
   },
   {
     "id": "phase8-security-password-001",
     "question": "Que permite configurar la seccion Politicas de Contraseña?",
     "expected": {
-      "documentTitle": "Módulo 3. Seguridad",
       "area": "Seguridad",
       "sectionContains": "Politicas de Contraseña",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-seguridad"
     }
   },
   {
     "id": "phase8-security-reset-001",
     "question": "Como se genera una solicitud de cambio de Contraseña por CIF?",
     "expected": {
-      "documentTitle": "Módulo 3. Seguridad",
       "area": "Seguridad",
       "sectionContains": "Solicitud Contraseña CIF",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-seguridad"
     }
   },
   {
     "id": "phase8-security-reset-002",
     "question": "Como se repone la Contraseña de acceso al sistema buscando por nombre de usuario?",
     "expected": {
-      "documentTitle": "Módulo 3. Seguridad",
       "area": "Seguridad",
       "sectionContains": "Solicitud Contraseña Usuario",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-seguridad"
     }
   },
   {
     "id": "phase8-security-portals-001",
     "question": "Como se activan o desactivan opciones de los portales de estudiantes y profesores?",
     "expected": {
-      "documentTitle": "Módulo 3. Seguridad",
       "area": "Seguridad",
       "sectionContains": "Seguridad portales",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-seguridad"
     }
   },
   {
     "id": "phase8-financial-billing-001",
     "question": "Para que sirve el modulo de Facturación?",
     "expected": {
-      "documentTitle": "Módulo 5: Procesos/Facturación",
       "area": "Financiera",
       "sectionContains": "Facturación",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-financiera-facturacion"
     }
   },
   {
     "id": "phase8-financial-billing-002",
     "question": "Como se busca un usuario para iniciar el proceso de Facturación?",
     "expected": {
-      "documentTitle": "Módulo 5: Procesos/Facturación",
       "area": "Financiera",
       "sectionContains": "Proceso de Facturación",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-financiera-facturacion"
     }
   },
   {
     "id": "phase8-financial-billing-003",
     "question": "Como se agrega un concepto a una obligacion financiera?",
     "expected": {
-      "documentTitle": "Módulo 5: Procesos/Facturación",
       "area": "Financiera",
       "sectionContains": "Agregar un concepto",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-financiera-facturacion"
     }
   },
   {
     "id": "phase8-financial-billing-004",
     "question": "Como se registran cuotas o abonos en Facturación?",
     "expected": {
-      "documentTitle": "Módulo 5: Procesos/Facturación",
       "area": "Financiera",
       "sectionContains": "Cuotas",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-financiera-facturacion"
     }
   },
   {
     "id": "phase8-config-system-codes-001",
     "question": "Que son los Códigos de sistema y para que se usan?",
     "expected": {
-      "documentTitle": "Módulo 1. Parámetros / Parámetros",
       "area": "Configuraciones",
       "sectionContains": "Códigos de sistema",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-configuraciones-parametros"
     }
   },
   {
     "id": "phase8-config-system-codes-002",
     "question": "Como se agrega un código de sistema?",
     "expected": {
-      "documentTitle": "Módulo 1. Parámetros / Parámetros",
       "area": "Configuraciones",
       "sectionContains": "Agregar un código de sistema",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-configuraciones-parametros"
     }
   },
   {
     "id": "phase8-config-required-fields-001",
     "question": "Como se marca un campo como obligatorio?",
     "expected": {
-      "documentTitle": "Módulo 1. Parámetros / Parámetros",
       "area": "Configuraciones",
       "sectionContains": "Campos obligatorios",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-configuraciones-parametros"
     }
   },
   {
     "id": "phase8-config-dynamic-fields-001",
     "question": "Como se crean Campos dinámicos personalizados?",
     "expected": {
-      "documentTitle": "Módulo 1. Parámetros / Parámetros",
       "area": "Configuraciones",
       "sectionContains": "Campos dinámicos",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-configuraciones-parametros"
     }
   },
   {
     "id": "phase8-config-locations-001",
     "question": "Como se configura la division territorial o Ubicaciones geográficas?",
     "expected": {
-      "documentTitle": "Módulo 1. Parámetros / Parámetros",
       "area": "Configuraciones",
       "sectionContains": "Ubicaciones geográficas",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-configuraciones-parametros"
     }
   },
   {
     "id": "phase8-negative-hr-vacations-001",
     "question": "Cual es la politica interna de vacaciones de Innovasoft?",
     "expected": {
-      "documentTitle": null,
       "area": null,
       "sectionContains": null,
-      "shouldHaveEvidence": false
+      "shouldHaveEvidence": false,
+      "documentKey": null
     }
   },
   {
     "id": "phase8-negative-payroll-001",
     "question": "Como se calcula la nomina y las prestaciones sociales de empleados?",
     "expected": {
-      "documentTitle": null,
       "area": null,
       "sectionContains": null,
-      "shouldHaveEvidence": false
+      "shouldHaveEvidence": false,
+      "documentKey": null
     }
   },
   {
     "id": "phase8-negative-travel-001",
     "question": "Cual es el procedimiento para solicitar viaticos de viaje corporativo?",
     "expected": {
-      "documentTitle": null,
       "area": null,
       "sectionContains": null,
-      "shouldHaveEvidence": false
+      "shouldHaveEvidence": false,
+      "documentKey": null
     }
   },
   {
     "id": "phase8-negative-product-001",
     "question": "Como se configura el inventario de bodegas en un sistema logistico externo?",
     "expected": {
-      "documentTitle": null,
       "area": null,
       "sectionContains": null,
-      "shouldHaveEvidence": false
+      "shouldHaveEvidence": false,
+      "documentKey": null
     }
   },
   {
     "id": "phase9a-negative-benefits-001",
     "question": "Que beneficios extralegales ofrece la empresa a sus empleados?",
     "expected": {
-      "documentTitle": null,
       "area": null,
       "sectionContains": null,
-      "shouldHaveEvidence": false
+      "shouldHaveEvidence": false,
+      "documentKey": null
     }
   },
   {
     "id": "phase9a-negative-recruiting-001",
     "question": "Como se aprueba la contratacion de un nuevo desarrollador?",
     "expected": {
-      "documentTitle": null,
       "area": null,
       "sectionContains": null,
-      "shouldHaveEvidence": false
+      "shouldHaveEvidence": false,
+      "documentKey": null
     }
   },
   {
     "id": "phase9a-negative-procurement-001",
     "question": "Cual es el flujo para comprar equipos de oficina y aprobar proveedores?",
     "expected": {
-      "documentTitle": null,
       "area": null,
       "sectionContains": null,
-      "shouldHaveEvidence": false
+      "shouldHaveEvidence": false,
+      "documentKey": null
     }
   },
   {
     "id": "phase9a-negative-crm-sales-001",
     "question": "Como se registra una oportunidad comercial en el CRM de ventas?",
     "expected": {
-      "documentTitle": null,
       "area": null,
       "sectionContains": null,
-      "shouldHaveEvidence": false
+      "shouldHaveEvidence": false,
+      "documentKey": null
     }
   },
   {
     "id": "phase9a-negative-marketing-001",
     "question": "Cual es el proceso para aprobar campanas de marketing digital?",
     "expected": {
-      "documentTitle": null,
       "area": null,
       "sectionContains": null,
-      "shouldHaveEvidence": false
+      "shouldHaveEvidence": false,
+      "documentKey": null
     }
   },
   {
     "id": "phase9a-negative-legal-001",
     "question": "Como se revisan contratos legales con clientes empresariales?",
     "expected": {
-      "documentTitle": null,
       "area": null,
       "sectionContains": null,
-      "shouldHaveEvidence": false
+      "shouldHaveEvidence": false,
+      "documentKey": null
     }
   },
   {
     "id": "phase9a-negative-it-support-001",
     "question": "Como se configura la VPN corporativa para trabajo remoto?",
     "expected": {
-      "documentTitle": null,
       "area": null,
       "sectionContains": null,
-      "shouldHaveEvidence": false
+      "shouldHaveEvidence": false,
+      "documentKey": null
     }
   },
   {
     "id": "phase9a-negative-facilities-001",
     "question": "Como se reserva una sala de reuniones o un puesto de parqueadero?",
     "expected": {
-      "documentTitle": null,
       "area": null,
       "sectionContains": null,
-      "shouldHaveEvidence": false
+      "shouldHaveEvidence": false,
+      "documentKey": null
     }
   },
   {
     "id": "phase9b-near-matricula-deadline-001",
     "question": "Cual es la fecha limite exacta para completar una matricula tardia?",
     "expected": {
-      "documentTitle": null,
       "area": "Académica",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 10: Matrícula",
-      "unsupportedRationale": "La corpus describe el proceso de matricula y fechas parametrizadas, pero no una fecha limite exacta para matricula tardia."
+      "unsupportedRationale": "La corpus describe el proceso de matricula y fechas parametrizadas, pero no una fecha limite exacta para matricula tardia.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-academica-matricula"
     }
   },
   {
     "id": "phase9b-near-matricula-override-001",
     "question": "Quien puede aprobar una excepcion para matricular cursos con choque de horario?",
     "expected": {
-      "documentTitle": null,
       "area": "Académica",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 10: Matrícula",
-      "unsupportedRationale": "La corpus indica que los choques impiden la matricula, pero no documenta una autoridad de excepcion."
+      "unsupportedRationale": "La corpus indica que los choques impiden la matricula, pero no documenta una autoridad de excepcion.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-academica-matricula"
     }
   },
   {
     "id": "phase9b-near-matricula-penalty-001",
     "question": "Que multa o penalidad se cobra por realizar la matricula fuera de plazo?",
     "expected": {
-      "documentTitle": null,
       "area": "Académica",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 10: Matrícula",
-      "unsupportedRationale": "La corpus no contiene multas ni penalidades por matricula fuera de plazo."
+      "unsupportedRationale": "La corpus no contiene multas ni penalidades por matricula fuera de plazo.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-academica-matricula"
     }
   },
   {
     "id": "phase9b-near-calificacion-reversal-limit-001",
     "question": "Cual es el numero maximo de reversiones de cierre de acta permitidas?",
     "expected": {
-      "documentTitle": null,
       "area": "Académica",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 11: Calificación",
-      "unsupportedRationale": "La corpus menciona historico de reversion de cierre de acta, pero no un maximo permitido."
+      "unsupportedRationale": "La corpus menciona historico de reversion de cierre de acta, pero no un maximo permitido.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-academica-calificacion"
     }
   },
   {
     "id": "phase9b-near-calificacion-correction-deadline-001",
     "question": "Cuantos dias tiene un docente para corregir una calificacion despues del cierre?",
     "expected": {
-      "documentTitle": null,
       "area": "Académica",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 11: Calificación",
-      "unsupportedRationale": "La corpus describe ingreso y proceso de calificaciones, pero no un plazo en dias para correcciones posteriores."
+      "unsupportedRationale": "La corpus describe ingreso y proceso de calificaciones, pero no un plazo en dias para correcciones posteriores.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-academica-calificacion"
     }
   },
   {
     "id": "phase9b-near-calificacion-retention-001",
     "question": "Por cuantos anos se deben conservar legalmente los registros de asistencia?",
     "expected": {
-      "documentTitle": null,
       "area": "Académica",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 11: Calificación",
-      "unsupportedRationale": "La corpus describe registro de asistencia, pero no una retencion legal en anos."
+      "unsupportedRationale": "La corpus describe registro de asistencia, pero no una retencion legal en anos.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-academica-calificacion"
     }
   },
   {
     "id": "phase9b-near-seguridad-mfa-001",
     "question": "La plataforma exige MFA o doble factor para ingresar al portal de estudiantes?",
     "expected": {
-      "documentTitle": null,
       "area": "Seguridad",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 3. Seguridad",
-      "unsupportedRationale": "La corpus cubre politicas de contrasena y portales, pero no una politica de MFA."
+      "unsupportedRationale": "La corpus cubre politicas de contrasena y portales, pero no una politica de MFA.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-seguridad"
     }
   },
   {
     "id": "phase9b-near-seguridad-lock-duration-001",
     "question": "Durante cuantos minutos queda bloqueada una cuenta despues de intentos fallidos?",
     "expected": {
-      "documentTitle": null,
       "area": "Seguridad",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 3. Seguridad",
-      "unsupportedRationale": "La corpus no documenta duracion de bloqueo ni intentos fallidos."
+      "unsupportedRationale": "La corpus no documenta duracion de bloqueo ni intentos fallidos.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-seguridad"
     }
   },
   {
     "id": "phase9b-near-seguridad-recovery-sla-001",
     "question": "Cual es el SLA para atender una solicitud de recuperacion de contrasena?",
     "expected": {
-      "documentTitle": null,
       "area": "Seguridad",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 3. Seguridad",
-      "unsupportedRationale": "La corpus explica como generar solicitudes de contrasena, pero no un SLA de atencion."
+      "unsupportedRationale": "La corpus explica como generar solicitudes de contrasena, pero no un SLA de atencion.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-seguridad"
     }
   },
   {
     "id": "phase9b-near-financiera-refund-001",
     "question": "En cuantos dias se devuelve el dinero despues de anular una factura?",
     "expected": {
-      "documentTitle": null,
       "area": "Financiera",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 5: Procesos/Facturación",
-      "unsupportedRationale": "La corpus describe facturacion y pagos, pero no devoluciones ni tiempos de reembolso."
+      "unsupportedRationale": "La corpus describe facturacion y pagos, pero no devoluciones ni tiempos de reembolso.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-financiera-facturacion"
     }
   },
   {
     "id": "phase9b-near-financiera-late-fee-001",
     "question": "Que porcentaje de interes de mora se cobra por pagos atrasados?",
     "expected": {
-      "documentTitle": null,
       "area": "Financiera",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 5: Procesos/Facturación",
-      "unsupportedRationale": "La corpus no contiene tasas de interes de mora ni penalidades por atraso."
+      "unsupportedRationale": "La corpus no contiene tasas de interes de mora ni penalidades por atraso.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-financiera-facturacion"
     }
   },
   {
     "id": "phase9b-near-financiera-grace-period-001",
     "question": "Cuantos dias de gracia tiene una cuota antes de marcarse vencida?",
     "expected": {
-      "documentTitle": null,
       "area": "Financiera",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 5: Procesos/Facturación",
-      "unsupportedRationale": "La corpus menciona cuotas y cronograma de pagos, pero no dias de gracia."
+      "unsupportedRationale": "La corpus menciona cuotas y cronograma de pagos, pero no dias de gracia.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-financiera-facturacion"
     }
   },
   {
     "id": "phase9b-near-config-approval-001",
     "question": "Quien debe aprobar la creacion de un campo dinamico personalizado?",
     "expected": {
-      "documentTitle": null,
       "area": "Configuraciones",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 1. Parámetros / Parámetros",
-      "unsupportedRationale": "La corpus describe como crear campos dinamicos, pero no un flujo de aprobacion."
+      "unsupportedRationale": "La corpus describe como crear campos dinamicos, pero no un flujo de aprobacion.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-configuraciones-parametros"
     }
   },
   {
     "id": "phase9b-near-config-version-retention-001",
     "question": "Cuantas versiones anteriores de los codigos de sistema se conservan?",
     "expected": {
-      "documentTitle": null,
       "area": "Configuraciones",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 1. Parámetros / Parámetros",
-      "unsupportedRationale": "La corpus cubre codigos de sistema, pero no retencion de versiones anteriores."
+      "unsupportedRationale": "La corpus cubre codigos de sistema, pero no retencion de versiones anteriores.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-configuraciones-parametros"
     }
   },
   {
     "id": "phase9b-near-homologaciones-processing-time-001",
     "question": "Cuantos dias habiles tarda la aprobacion de una homologacion de cursos?",
     "expected": {
-      "documentTitle": null,
       "area": "Académica",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 6. Homologaciones - Faltas de asistencia - Consecutivo actas de grado y diplomas",
-      "unsupportedRationale": "La corpus describe homologacion de cursos, pero no tiempos de aprobacion."
+      "unsupportedRationale": "La corpus describe homologacion de cursos, pero no tiempos de aprobacion.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-academica-homologaciones"
     }
   },
   {
     "id": "phase9b-near-homologaciones-course-limit-001",
     "question": "Cual es el numero maximo de cursos que un estudiante puede homologar?",
     "expected": {
-      "documentTitle": null,
       "area": "Académica",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 6. Homologaciones - Faltas de asistencia - Consecutivo actas de grado y diplomas",
-      "unsupportedRationale": "La corpus no documenta un maximo de cursos homologables."
+      "unsupportedRationale": "La corpus no documenta un maximo de cursos homologables.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-academica-homologaciones"
     }
   }
 ]

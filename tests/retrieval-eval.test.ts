@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
+  CANONICAL_DOCUMENT_REGISTRY,
   calculateConfusionMetrics,
   calculateWhatIfMetrics,
   classifyComponentComparison,
@@ -16,6 +17,7 @@ import {
   summarizeCompositeSignalDistributions,
   summarizeLexicalOverlapDistributions,
   summarizeObservations,
+  validateCanonicalDocumentRegistry,
   validateFixtureCases,
   type DiagnosticChunk,
   type EvalCase,
@@ -29,6 +31,7 @@ function fixtureCase(overrides: Partial<EvalCase> = {}): EvalCase {
     id: "case-1",
     question: "Como se registra el control de asistencia?",
     expected: {
+      documentKey: "class-limitless-academica-calificacion",
       documentTitle: "Módulo 11: Calificación",
       area: "Académica",
       sectionContains: "Control de asistencias",
@@ -101,6 +104,11 @@ describe("retrieval benchmark fixture validation", () => {
       ),
     ).toHaveLength(16);
     expect(new Set(cases.map((testCase) => testCase.id)).size).toBe(cases.length);
+    expect(
+      cases
+        .filter((testCase) => testCase.expected.shouldHaveEvidence)
+        .every((testCase) => testCase.expected.documentKey && testCase.expected.documentTitle),
+    ).toBe(true);
   });
 
   it("validates the Phase 9C paraphrase fixture separately", () => {
@@ -119,6 +127,20 @@ describe("retrieval benchmark fixture validation", () => {
       ),
     ).toHaveLength(8);
     expect(cases.every((testCase) => testCase.suite === "paraphrase")).toBe(true);
+    expect(
+      cases
+        .filter((testCase) => testCase.expected.shouldHaveEvidence)
+        .map((testCase) => testCase.expected.documentKey),
+    ).toEqual([
+      "class-limitless-academica-matricula",
+      "class-limitless-academica-homologaciones",
+      "class-limitless-academica-homologaciones",
+      "class-limitless-academica-calificacion",
+      "class-limitless-academica-calificacion",
+      "class-limitless-seguridad",
+      "class-limitless-financiera-facturacion",
+      "class-limitless-configuraciones-parametros",
+    ]);
   });
 
   it("rejects malformed positive cases without expected document metadata", () => {
@@ -128,7 +150,7 @@ describe("retrieval benchmark fixture validation", () => {
           id: "bad",
           question: "Que hago?",
           expected: {
-            documentTitle: null,
+            documentKey: null,
             area: "Académica",
             sectionContains: "Matrícula",
             shouldHaveEvidence: true,
@@ -138,6 +160,52 @@ describe("retrieval benchmark fixture validation", () => {
     ).toThrow(/Positive fixture case/);
   });
 
+  it("resolves documentKey to the canonical stored title", () => {
+    const [testCase] = validateFixtureCases([
+      {
+        id: "canonical",
+        question: "Como configuro faltas?",
+        expected: {
+          documentKey: "class-limitless-academica-homologaciones",
+          area: "Académica",
+          sectionContains: "Faltas de asistencia",
+          shouldHaveEvidence: true,
+        },
+      },
+    ]);
+
+    expect(testCase?.expected.documentTitle).toBe(
+      CANONICAL_DOCUMENT_REGISTRY["class-limitless-academica-homologaciones"],
+    );
+  });
+
+  it("rejects legacy fixture documentTitle fields", () => {
+    expect(() =>
+      validateFixtureCases([
+        {
+          id: "legacy",
+          question: "Como configuro faltas?",
+          expected: {
+            documentTitle: "Módulo 6: Homologaciones",
+            area: "Académica",
+            sectionContains: "Faltas de asistencia",
+            shouldHaveEvidence: true,
+          },
+        },
+      ]),
+    ).toThrow(/documentKey instead of documentTitle/);
+  });
+
+  it("validates canonical registry uniqueness and local corpus presence", () => {
+    validateCanonicalDocumentRegistry(Object.values(CANONICAL_DOCUMENT_REGISTRY));
+
+    expect(() =>
+      validateCanonicalDocumentRegistry([
+        CANONICAL_DOCUMENT_REGISTRY["class-limitless-academica-matricula"],
+      ]),
+    ).toThrow(/missing from the local corpus/);
+  });
+
   it("requires near-negative metadata for near-negative fixture cases", () => {
     expect(() =>
       validateFixtureCases([
@@ -145,7 +213,7 @@ describe("retrieval benchmark fixture validation", () => {
           id: "near-bad",
           question: "Cual es el plazo exacto?",
           expected: {
-            documentTitle: null,
+            documentKey: null,
             area: "Académica",
             sectionContains: null,
             shouldHaveEvidence: false,
@@ -154,6 +222,39 @@ describe("retrieval benchmark fixture validation", () => {
         },
       ]),
     ).toThrow(/Near-negative fixture case/);
+  });
+
+  it("allows negative cases without documentKey and near negatives with relatedDocumentKey", () => {
+    const cases = validateFixtureCases([
+      {
+        id: "far",
+        question: "Cual es la politica de vacaciones?",
+        expected: {
+          documentKey: null,
+          area: null,
+          sectionContains: null,
+          shouldHaveEvidence: false,
+        },
+      },
+      {
+        id: "near",
+        question: "Cuantos dias tarda una homologacion?",
+        expected: {
+          documentKey: null,
+          area: "Académica",
+          sectionContains: null,
+          shouldHaveEvidence: false,
+          nearNegative: true,
+          relatedDocumentKey: "class-limitless-academica-homologaciones",
+          unsupportedRationale: "No processing time is documented.",
+        },
+      },
+    ]);
+
+    expect(cases[0]?.expected.documentTitle).toBeNull();
+    expect(cases[1]?.expected.relatedDocumentTitle).toBe(
+      CANONICAL_DOCUMENT_REGISTRY["class-limitless-academica-homologaciones"],
+    );
   });
 });
 
@@ -184,6 +285,44 @@ describe("retrieval benchmark metrics", () => {
     expect(observation.expectedDocumentTopK).toBe(true);
     expect(observation.expectedSectionTop1).toBe(false);
     expect(observation.expectedSectionTopK).toBe(true);
+  });
+
+  it("scores canonical documentKey expectations against canonical stored titles", () => {
+    const [testCase] = validateFixtureCases(
+      [
+        {
+          id: "p9c-pos-002",
+          question: "¿Cómo registro equivalencias de asignaturas entre programas?",
+          expected: {
+            documentKey: "class-limitless-academica-homologaciones",
+            area: "Académica",
+            sectionContains: "Homologación de cursos",
+            shouldHaveEvidence: true,
+          },
+        },
+      ],
+      "paraphrase",
+    );
+
+    const observation = evaluateCase(testCase!, [
+      result({
+        document: {
+          title:
+            "Módulo 6. Homologaciones - Faltas de asistencia - Consecutivo actas de grado y diplomas",
+          sourceUrl: "https://notion.local/homologaciones",
+          brand: "Class Limitless",
+          area: "Académica",
+        },
+        sectionPath:
+          "Módulo 6. Homologaciones - Faltas de asistencia - Consecutivo actas de grado y diplomas > Homologación de cursos",
+        content: "Homologación de cursos entre programas académicos.",
+      }),
+    ]);
+
+    expect(observation.expectedDocumentRank).toBe(1);
+    expect(observation.expectedSectionRank).toBe(1);
+    expect(observation.expectedDocumentTop1).toBe(true);
+    expect(observation.expectedSectionTop1).toBe(true);
   });
 
   it("reports top-1 section accuracy separately from section hit within top-k", () => {

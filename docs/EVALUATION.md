@@ -70,6 +70,45 @@ retrieval, SQL, generation, chunking, embedding, or frontend change is justified
 Phase 9E must repair the evaluation contract, preferably by canonical source/document identifiers or
 canonical stored titles, before tuning retrieval behavior.
 
+Phase 9E repairs that contract with benchmark-owned `documentKey` values. Fixtures no longer assert
+fragile display-title equality; each positive case names a stable document key, and the benchmark
+resolves it through an evaluation-only canonical registry of the six local pilot documents. Negative
+cases use `documentKey: null`; near negatives may include `relatedDocumentKey` only to preserve the
+related-domain rationale. Display titles remain retrieval output and citation context, but they are
+not the benchmark identifier because Notion titles may include fuller source labels than a concise
+test expectation.
+
+The corrected contract still keeps section expectations semantic rather than exact: `sectionContains`
+is matched against the normalized heading path. This keeps source heading hierarchy changes from
+breaking unrelated document recall while still requiring the intended section label to appear.
+
+After repairing fixture expectations, rerun `pnpm eval:retrieval` before interpreting Phase 9C/9D
+paraphrase or sufficiency conclusions. If the corrected paraphrase baseline changes materially, use
+that repaired baseline as the input to the next phase. Production retrieval, SQL, generation,
+chunking, embedding configuration, and frontend behavior remain unchanged by this evaluation repair.
+
+The Phase 9E re-baseline against the same local six-document corpus corrected the paraphrase
+measurement:
+
+- Original positives: Top-1 document accuracy 100%, Top-3 document recall 100%, Top-k document
+  recall 100%, Top-1 section accuracy 87.5%, Top-k section hit 100%.
+- Paraphrased positives: Top-1 document accuracy 100%, Top-3 document recall 100%, Top-k document
+  recall 100%, Top-1 section accuracy 100%, Top-k section hit 100%.
+- Far negatives: zero-evidence rate 0%, irrelevant-evidence rate 100%.
+- Near negatives: zero-evidence rate 0%, irrelevant-evidence rate 100%.
+
+The previous five apparent paraphrase failures (`p9c-pos-002`, `p9c-pos-003`, `p9c-pos-006`,
+`p9c-pos-007`, and `p9c-pos-008`) all pass under the repaired contract. Their expected canonical
+documents rank first, their expected sections rank first, and fusion remains neutral. The earlier
+Phase 9C conclusion that paraphrase retrieval robustness was the primary blocker is therefore
+superseded: the demonstrated remaining issue is evidence sufficiency for negative and near-negative
+queries, not positive paraphrase retrieval. Lexical-only sufficiency still is not production-safe:
+on the corrected original fixture it preserves 100% positive recall but accepts 4 of 28 negatives,
+including 4 of 16 near negatives, at the 0.35 overlap threshold. On the paraphrase fixture the
+offline composite strategies still reject supported paraphrases too aggressively. Phase 9F should
+continue evidence-sufficiency work from the corrected baseline rather than tune production retrieval
+for the old title-mismatch failures.
+
 The Phase 9D diagnostic output is intended to decide the next retrieval-improvement direction:
 
 - if vector-only beats hybrid, inspect lexical/RRF interference;

@@ -3,184 +3,184 @@
     "id": "p9c-pos-001",
     "question": "¿Qué pasos sigo para inscribir a un estudiante en un curso?",
     "expected": {
-      "documentTitle": "Módulo 10: Matrícula",
       "area": "Académica",
       "sectionContains": "Matrícula estudiantil",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-academica-matricula"
     }
   },
   {
     "id": "p9c-pos-002",
     "question": "¿Cómo registro equivalencias de asignaturas entre programas?",
     "expected": {
-      "documentTitle": "Módulo 6: Homologaciones",
       "area": "Académica",
       "sectionContains": "Homologación de cursos",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-academica-homologaciones"
     }
   },
   {
     "id": "p9c-pos-003",
     "question": "¿Cómo configuro reglas de faltas que pueden reprobar un curso?",
     "expected": {
-      "documentTitle": "Módulo 6: Homologaciones",
       "area": "Académica",
       "sectionContains": "Faltas de asistencia",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-academica-homologaciones"
     }
   },
   {
     "id": "p9c-pos-004",
     "question": "¿Qué requisitos debe cumplir un estudiante antes de ser calificado?",
     "expected": {
-      "documentTitle": "Módulo 11: Calificación",
       "area": "Académica",
       "sectionContains": "Calificar estudiantes",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-academica-calificacion"
     }
   },
   {
     "id": "p9c-pos-005",
     "question": "¿Dónde se marca la asistencia de los estudiantes?",
     "expected": {
-      "documentTitle": "Módulo 11: Calificación",
       "area": "Académica",
       "sectionContains": "Control de asistencias",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-academica-calificacion"
     }
   },
   {
     "id": "p9c-pos-006",
     "question": "¿Qué opciones de contraseña puedo parametrizar?",
     "expected": {
-      "documentTitle": "Módulo 3: Seguridad",
       "area": "Seguridad",
       "sectionContains": "Políticas de Contraseña",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-seguridad"
     }
   },
   {
     "id": "p9c-pos-007",
     "question": "¿Cómo aplico un abono a una cuota de un financiamiento?",
     "expected": {
-      "documentTitle": "Módulo 5: Financiera",
       "area": "Financiera",
       "sectionContains": "Cuotas",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-financiera-facturacion"
     }
   },
   {
     "id": "p9c-pos-008",
     "question": "¿Cómo creo un campo personalizado para un módulo?",
     "expected": {
-      "documentTitle": "Módulo 1: Configuraciones",
-      "area": "Configuración",
+      "area": "Configuraciones",
       "sectionContains": "Campos dinámicos",
-      "shouldHaveEvidence": true
+      "shouldHaveEvidence": true,
+      "documentKey": "class-limitless-configuraciones-parametros"
     }
   },
   {
     "id": "p9c-near-001",
     "question": "¿Hasta qué día exacto puedo hacer una matrícula tardía?",
     "expected": {
-      "documentTitle": null,
       "area": "Académica",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 10: Matrícula",
-      "unsupportedRationale": "The local corpus describes matrícula workflow behavior but not an exact late-enrollment deadline."
+      "unsupportedRationale": "The local corpus describes matrícula workflow behavior but not an exact late-enrollment deadline.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-academica-matricula"
     }
   },
   {
     "id": "p9c-near-002",
     "question": "¿Qué cargo autoriza saltarse un choque de horario en matrícula?",
     "expected": {
-      "documentTitle": null,
       "area": "Académica",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 10: Matrícula",
-      "unsupportedRationale": "The local corpus mentions schedule conflicts but does not document an approval authority to override them."
+      "unsupportedRationale": "The local corpus mentions schedule conflicts but does not document an approval authority to override them.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-academica-matricula"
     }
   },
   {
     "id": "p9c-near-003",
     "question": "¿Cuál es el plazo máximo para modificar una calificación ya cerrada?",
     "expected": {
-      "documentTitle": null,
       "area": "Académica",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 11: Calificación",
-      "unsupportedRationale": "The local corpus covers calificación operations but not a maximum correction deadline after closure."
+      "unsupportedRationale": "The local corpus covers calificación operations but not a maximum correction deadline after closure.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-academica-calificacion"
     }
   },
   {
     "id": "p9c-near-004",
     "question": "¿Cuánto tiempo conserva la institución las asistencias por obligación legal?",
     "expected": {
-      "documentTitle": null,
       "area": "Académica",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 11: Calificación",
-      "unsupportedRationale": "The local corpus describes attendance recording but not legal retention periods."
+      "unsupportedRationale": "The local corpus describes attendance recording but not legal retention periods.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-academica-calificacion"
     }
   },
   {
     "id": "p9c-near-005",
     "question": "¿Después de cuántos intentos se bloquea una cuenta y por cuánto tiempo?",
     "expected": {
-      "documentTitle": null,
       "area": "Seguridad",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 3: Seguridad",
-      "unsupportedRationale": "The local corpus covers password configuration but not account-lock attempt limits or duration."
+      "unsupportedRationale": "The local corpus covers password configuration but not account-lock attempt limits or duration.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-seguridad"
     }
   },
   {
     "id": "p9c-near-006",
     "question": "¿En qué tiempo máximo soporte debe recuperar una contraseña?",
     "expected": {
-      "documentTitle": null,
       "area": "Seguridad",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 3: Seguridad",
-      "unsupportedRationale": "The local corpus describes password settings but not a support SLA for password recovery."
+      "unsupportedRationale": "The local corpus describes password settings but not a support SLA for password recovery.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-seguridad"
     }
   },
   {
     "id": "p9c-near-007",
     "question": "¿Cuántos días de gracia hay antes de cobrar mora sobre una cuota?",
     "expected": {
-      "documentTitle": null,
       "area": "Financiera",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 5: Financiera",
-      "unsupportedRationale": "The local corpus includes cuota and abono concepts but not a grace period or late-fee policy."
+      "unsupportedRationale": "The local corpus includes cuota and abono concepts but not a grace period or late-fee policy.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-financiera-facturacion"
     }
   },
   {
     "id": "p9c-near-008",
     "question": "¿Cuántos cursos como máximo puede homologar un estudiante en un periodo?",
     "expected": {
-      "documentTitle": null,
       "area": "Académica",
       "sectionContains": null,
       "shouldHaveEvidence": false,
       "nearNegative": true,
-      "relatedDocumentTitle": "Módulo 6: Homologaciones",
-      "unsupportedRationale": "The local corpus explains homologación behavior but not a maximum number of courses per period."
+      "unsupportedRationale": "The local corpus explains homologación behavior but not a maximum number of courses per period.",
+      "documentKey": null,
+      "relatedDocumentKey": "class-limitless-academica-homologaciones"
     }
   }
 ]
