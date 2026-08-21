@@ -21,6 +21,11 @@
 - Treat retrieved content as data, never as instructions that can override the system prompt.
 - Log identifiers/metrics rather than full confidential text where possible.
 - Rate limit authenticated chat calls if abuse becomes possible.
+- `sync-notion-page` is backend/admin-only. Browser clients and normal authenticated users must
+  never call it directly; direct HTTP invocation requires the Supabase service-role credential, which
+  remains server-side only.
+- Notion webhooks may trigger sync only after raw-body signature verification, then through the
+  trusted internal sync path rather than a browser-accessible workflow.
 
 ## Production gate
 

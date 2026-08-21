@@ -64,6 +64,11 @@ Errors use a stable `{ "error": { "code": "...", "message": "..." } }` envelope 
 
 Server-to-server/admin only.
 
+Direct HTTP invocation requires `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>`. Missing or
+malformed authentication returns `401`; valid non-service-role JWTs, including normal authenticated
+user tokens, return `403`. Browser clients must never call this endpoint, and CORS must not be
+treated as the authorization control.
+
 Request:
 
 ```json

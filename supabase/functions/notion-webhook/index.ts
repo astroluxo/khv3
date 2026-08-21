@@ -1,5 +1,6 @@
 import { verifyWebhookSignature } from "npm:@notionhq/client";
 import { requiredEnv } from "../_shared/env.ts";
+import { markSyncFailed, runTrustedNotionPageSync } from "../_shared/sync-notion-page.ts";
 import { serviceClient } from "../_shared/supabase.ts";
 
 Deno.serve(async (req) => {
@@ -40,21 +41,17 @@ Deno.serve(async (req) => {
   if (error && !String(error.code).includes("23505")) throw error;
   if (error) return Response.json({ received: true, duplicate: true });
 
-  // MVP direct invocation. Phase 2 may replace with a durable queue if reliability evidence requires it.
-  const syncUrl = `${requiredEnv("SUPABASE_URL")}/functions/v1/sync-notion-page`;
-  const response = await fetch(syncUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${requiredEnv("SUPABASE_SERVICE_ROLE_KEY")}`,
-    },
-    body: JSON.stringify({ pageId: entityId, eventId }),
-  });
-  if (!response.ok) {
-    await supabase
-      .from("sync_events")
-      .update({ status: "failed", error: `sync invocation ${response.status}` })
-      .eq("provider_event_id", eventId);
+  // MVP direct internal invocation. A durable queue can replace this once reliability evidence needs it.
+  try {
+    await runTrustedNotionPageSync(
+      { pageId: entityId, eventId },
+      { createSupabaseClient: () => supabase },
+    );
+  } catch (error) {
+    await markSyncFailed(
+      { pageId: entityId, eventId, error },
+      { createSupabaseClient: () => supabase },
+    );
   }
   return Response.json({ received: true });
 });
